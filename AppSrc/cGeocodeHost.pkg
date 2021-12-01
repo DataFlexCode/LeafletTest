@@ -1,0 +1,54 @@
+﻿Use UI
+
+Class cGeocodeHost is a cObject
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        Property String[] pasConnectorIDs
+        Property String[] pasConnectorNames
+        Property Handle[] pahConnectorObjects
+    End_Procedure
+    
+    Procedure RegisterGeocodeConnector Handle hoObject String sID String sName
+        String[] asIDs asNames
+        Handle[] ahObjs
+        Integer  iIdx
+        
+        Get pahConnectorObjects     to ahObjs
+        
+        Move (SearchArray(hoObject, ahObjs)) to iIdx
+        
+        If (iIdx = -1) Begin  // Not already registered
+            Move (SizeOfArray(ahObjs)) to iIdx
+            Get pasConnectorIDs     to asIDs
+            Get pasConnectorNames   to asNames
+            
+            Move hoObject           to ahObjs[iIdx]
+            Move sID                to asIDs[iIdx]
+            Move sName              to asNames[iIdx]
+            
+            Set pasConnectorIDs     to asIDs
+            Set pasConnectorNames   to asNames
+            Set pahConnectorObjects to ahObjs
+        End
+        
+    End_Procedure
+    
+    Function ConnectorObjectFromID String sID Returns Handle
+        String[] asIDs
+        Handle[] ahObjs
+        Integer  iIdx
+        
+        Get pasConnectorIDs to asIDs
+        
+        Move (SearchArray(sID, asIDs)) to iIDx
+        
+        If (iIdx = -1) ;
+            Function_Return 0
+
+        Get pahConnectorObjects to ahObjs        
+        Function_Return ahObjs[iIdx]
+    End_Function
+
+End_Class

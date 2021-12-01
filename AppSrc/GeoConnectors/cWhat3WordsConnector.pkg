@@ -1,0 +1,87 @@
+﻿Use cGeocodeConnector.pkg
+
+Class cWhat3WordsConnector is a cGeocodeConnector
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        Set psHost      to "api.what3words.com"
+        Set psPath      to "v3/convert-to-coordinates"
+        Set psKey       to (Config("tokens.whatThreeWordsKey"))
+        Set psName      to "What 3 Words"
+        Set psID        to "WHT3WDS"
+        Set psWebSite   to "https://www.what3words.com"
+        
+        Property Number[] panBoundingBox
+    End_Procedure
+    
+    Function FreeQuery String sQuery Returns Handle
+        Handle hoJson
+        
+        Move (Replaces(" ", sQuery, ".")) to sQuery
+        Move ("words=" + sQuery)            to sQuery
+        Get DoGeoQuery sQuery               to hoJson
+        
+        Function_Return hoJson
+    End_Function
+        
+    Procedure ExtractData Handle hoJson
+        Number nLat nLng
+        String sCountry
+        Number[] anBox
+        
+        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "coordinates.lat"))
+        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "coordinates.lng"))
+        
+        Move (ValueAtPath(oJPath(Self), hoJson, "square.southwest.lat")) to anBox[0]
+        Move (ValueAtPath(oJPath(Self), hoJson, "square.southwest.lng")) to anBox[2]
+        Move (ValueAtPath(oJPath(Self), hoJson, "square.northeast.lat")) to anBox[1]
+        Move (ValueAtPath(oJPath(Self), hoJson, "square.northeast.lng")) to anBox[3]
+        Set panBoundingBox to anBox
+
+        Move (ValueAtPath(oJPath(Self), hoJson, "country")) to sCountry
+        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "nearestPlace") + "," * sCountry)
+    End_Procedure
+    
+    Procedure DrawMap Handle hoJson Handle hoMap
+        Number[]  anBox
+        stPolygon tBox
+        String    sName
+        
+        If not hoMap ;
+            Procedure_Return
+        If (pnLat(Self) = 100) ;
+            Procedure_Return
+
+        Forward Send DrawMap hoJson hoMap
+
+        Get panBoundingBox to anBox
+        
+        If (SizeOfArray(anBox) = 4) Begin
+            Move anBox[0]   to tBox.aPoints[0][0]
+            Move anBox[2]   to tBox.aPoints[0][1]
+            
+            Move anBox[1]   to tBox.aPoints[1][0]
+            Move anBox[2]   to tBox.aPoints[1][1]
+            
+            Move anBox[1]   to tBox.aPoints[2][0]
+            Move anBox[3]   to tBox.aPoints[2][1]
+            
+            Move anBox[0]   to tBox.aPoints[3][0]
+            Move anBox[3]   to tBox.aPoints[3][1]
+            
+            Move (Config("defaults.polygon.lineColor"))     to tBox.sLineColor
+            Move (Config("defaults.polygon.lineWeight"))    to tBox.iLineWeight
+            Move (Config("defaults.polygon.lineOpacity"))   to tBox.nLineOpacity
+            Move (Config("defaults.polygon.fillColor"))     to tBox.sFillColor
+            Move (Config("defaults.polygon.fillOpacity"))   to tBox.nFillOpacity
+            
+            Move True to tBox.bStroke
+            Move (pbFitMap(Self)) to tBox.bFitMap
+            
+            Send DrawPolygon of hoMap tBox
+        End
+        
+    End_Procedure
+    
+End_Class

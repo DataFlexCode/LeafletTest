@@ -1,0 +1,32 @@
+﻿Use cHttpTransfer.pkg
+
+Class cGeoHttpTransfer is a cHttpTransfer
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        Property UChar[] pucaData
+        Property String  psContentType
+        
+        // Make these the defaults, override in object if different
+        Set piRemotePort    to 443
+        Set peTransferFlags to ifSecure        
+    End_Procedure
+    
+    Procedure OnDataReceived String sContentType String sData
+        UChar[] ucaData
+        
+        Get pucaData to ucaData
+        Move (AppendArray(ucaData, StringToUCharArray(sData))) to ucaData
+        Set pucaData to ucaData
+    End_Procedure
+    
+    Procedure Reset
+        UChar[] empty
+        
+        Set psContentType   to ""
+        Set pucaData        to empty
+        Send ClearHeaders
+    End_Procedure
+        
+End_Class

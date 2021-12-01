@@ -1,0 +1,132 @@
+﻿Use AllWebAppClasses.pkg
+Use cConnection.pkg
+Use cWebMenuItemLoadView.pkg
+Use JsonConfig.pkg
+
+Object oApplication is a cApplication
+    Object oConnection is a cConnection
+        Use LoginEncryption.pkg
+    End_Object
+End_Object
+
+Object oWebApp is a cWebApp
+    Set psTheme to "DF_Material"
+    Set peApplicationStateMode to asmHistoryOnly
+    Set peLoginMode to lmLoginNone
+    Set psEncryptPassword to "Q7>}w~hmwPZ9#6g^wTyq[zAo>(k.Pvm#ndfiDO34"
+    
+    Get LoadConfig of ghoJsonConfig to WindowIndex  // Loads setting from Programs/Config.json
+                                                    // (the default filename)        
+
+    Object oCommandbar is a cWebCommandBar
+        Object oMenuBar is a cWebMenuBar
+            Object oFileMenu is a cWebMenuItem
+                Set psCaption to C_$File
+                
+                Object oClearMenuItem is a cWebMenuClear
+                End_Object
+                             
+                Object oClearAllMenuItem is a cWebMenuClearAll
+                End_Object  
+                
+                Object oPromptMenuItem is a cWebMenuPrompt
+                    Set pbBeginGroup to True
+                End_Object  
+                               
+                Object oFindMenuItem is a cWebMenuFind
+                End_Object  
+
+                Object oNextMenuItem is a cWebMenuFindNext
+                End_Object  
+
+                Object oPreviousMenuItem is a cWebMenuFindPrevious
+                End_Object  
+                
+                Object oLastMenuItem is a cWebMenuFindLast
+                End_Object                
+                                
+                Object oFirstMenuItem is a cWebMenuFindFirst
+                End_Object  
+                
+                Object oSaveMenuItem is a cWebMenuSave
+                    Set pbBeginGroup to True
+                End_Object  
+                
+                Object oDeleteMenuItem is a cWebMenuDelete
+                End_Object  
+                
+                Object oLoginMenuItem is a cWebMenuItem
+                    Set psCaption to C_$LogIn
+                    Set pbBeginGroup to True
+                    Set psCSSClass to "WebLoginMenuItem"
+
+                    Procedure OnClick
+                        Send RequestLogin to ghoWebSessionManager
+                    End_Procedure
+                    
+                    Procedure OnLoad
+                        Integer eLoginMode
+                        Handle hoLogin
+                        Get GetLoginView to hoLogin
+                        Get peLoginMode to eLoginMode
+                        WebSet pbRender to  (hoLogin and eLoginMode<>lmLoginNone)
+                    End_Procedure  // OnLoad
+                    
+                End_Object  
+
+                Object oLogoutMenuItem is a cWebMenuItem
+                    Set psCaption to C_$LogOut
+                    Set psCSSClass to "WebLogoutMenuItem"
+
+                    Procedure OnClick
+                        Send RequestLogOut of ghoWebSessionManager
+                    End_Procedure
+
+                    Procedure OnLoad
+                        Integer eLoginMode
+                        Handle hoLogin
+                        Get GetLoginView to hoLogin
+                        Get peLoginMode to eLoginMode
+                        WebSet pbRender to  (hoLogin and eLoginMode<>lmLoginNone)
+                    End_Procedure
+                End_Object  
+            End_Object  
+    
+            Object oViewMenu is a cWebMenuItem
+                Set psCaption to C_$View
+
+                Object oSimpleMapTest1 is a cWebMenuItemLoadView
+                    Set psCaption to "Simple Map Test"
+                    Set psLoadViewOnClick to "oSimpleMapTest"
+                End_Object
+
+                Object oTestGeoMappingItem1 is a cWebMenuItemLoadView
+                    Set psCaption to "GeoMapping Test"
+                    Set psLoadViewOnClick to "oTestGeoMap"
+                End_Object
+
+                Object oPathTraceExampleItem1 is a cWebMenuItemLoadView
+                    Set psCaption to "Path Trace Example"
+                    Set psLoadViewOnClick to "oPathTrace"
+                End_Object
+
+                Object oCountriesItem1 is a cWebMenuItemLoadView
+                    Set psCaption to "Countries"
+                    Set psLoadViewOnClick to "oCountries"
+                End_Object
+            End_Object  
+        End_Object  
+        
+    End_Object
+
+    Use SessionManager.wo
+    Use LoginDialog.wo
+    Use WebResourceManager.wo
+    Use SimpleMapTest.wo
+    Use TestGeoMap.wo
+    Use PathTrace.wo
+    Use Countries.wo
+    
+End_Object
+
+Send StartWebApp of oWebApp

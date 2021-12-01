@@ -1,0 +1,257 @@
+//==============================================================================
+// JsonConfig.pkg
+//
+// A singleton object which can read in a JSON configuration file, store it as a
+// DataFlex Json object, then supply values from it as required.
+// 
+// It has a global handle: ghoJsonConfig and then a terse global method for 
+// getting back the settings: (Config({setting-path})).
+//
+// Author:  Mike Peat
+// Date:    04/02/2020
+//
+// Usage:
+// 
+//   Load the config file:
+//     Get LoadConfig of ghoJsonConfig {optional-filename} {optional-path} to bOK
+//
+//   If not supplied the default filename is "config.json" and the path is the
+//   programs directory of your current workspace.  If you pass an empty
+//   filename then "config.json:" will be used.  There is no requirement for
+//   filename extension to be ".json" (although that _would_ seem sensible).
+//
+//   Reading a setting:
+//     Move (Config("foo.bar.baz[3].bob")) to nVar  // nVar is now 42
+//   Or:
+//     Get Config "foo.bar.baz[3].bob"     to sVar  // sVar is now "42"
+//
+//   Which would return the setting in the file from:
+//      {
+//          "foo" : {
+//              "bar" : {
+//                  "baz" : [
+//                      66,
+//                      {
+//                          "jim" : "jack"
+//                      },
+//                      false,
+//                      {
+//                          "bob" : 42     <--- This one!
+//                      },
+//                      {
+//                          "kim" : "possible"
+//                      }
+//                  ]
+//              }
+//          }
+//      }
+//
+// (If "Config" conflicts with anything in your environment you can simply
+//  change the name of the global function at the bottom of the package.)
+//
+// It should handle multi-dimentional arrays (i.e. foo[3][22][6]) and JSON of
+// arbitrary depth and length.
+//
+// Attempts to get settings which are not in the JSON will return empty strings.
+//
+// NOTE: JSON is case-sensitive, so your search-strings must exactly match the
+//       object names ("foo" is *not* "Foo") in the JSON file.
+//
+//==============================================================================
+#IFDEF Is$WebApp
+    Use UI
+#ELSE
+    Use Windows.pkg
+#ENDIF
+Use seq_chnl.pkg
+Use cJsonObject.pkg
+
+Global_Variable Handle ghoJsonConfig
+Register_Function ReadSetting String sDefs Handle hoDefs Returns String
+
+Define C_jsonConfigDefaultFile for "config.json"
+
+Object oJsonConfig is a cObject
+    Property Handle phoConfig
+    
+    Move Self to ghoJsonConfig
+    
+    Procedure UserMessage String sMsg String sTitle
+        #IFDEF Is$WebApp
+            Send ShowInfoBox sMsg sTitle
+        #ELSE
+            Send Info_Box    sMsg sTitle
+        #ENDIF
+    End_Procedure
+    
+    Function LoadConfig Returns Boolean
+        String  sFile sDir sPath sErr
+        Handle  hoConfig
+        Integer iArg iChn
+        UChar[] ucaConfig
+        Boolean bOK bExists
+        
+        // If phoConfig exists, destroy it
+        Get phoConfig to hoConfig
+        
+        If hoConfig Begin
+            Send Destroy of hoConfig
+            Set phoConfig to 0
+        End
+        
+        // The default filename & path
+        Move C_jsonConfigDefaultFile to sFile
+        Move (psProgramPath(phoWorkspace(ghoApplication))) to sDir
+
+        // Deal with optional filename and path:
+        If (num_arguments > 0) Begin
+            Move 1                              to iArg
+            Move iArg&                          to sFile
+            If (sFile = "") ;  // use default
+                Move C_jsonConfigDefaultFile    to sFile
+            
+            If (num_arguments > 1) Begin
+                Move 2                          to iArg
+                Move iArg&                      to sDir
+            End
+
+        End
+        
+        // Read the config file
+        Move (sDir + SysConf(SYSCONF_DIR_SEPARATOR) + sFile) to sPath
+        
+        File_Exist sPath bExists
+        
+        If not bExists Begin
+            Send UserMessage ('Config file "' + sPath + '" does not exist') 'File Error'
+            Function_Return False
+        End
+        
+        Get Seq_New_Channel   to iChn
+        Direct_Input     channel iChn sPath
+        Read_Block       channel iChn ucaConfig -1
+        Close_Input      channel iChn
+        Send Seq_Release_Channel iChn
+        
+        If (SizeOfArray(ucaConfig) < 7) Begin  // About the minimum: {"x":y}
+            Send UserMessage ('Configuration file "' + sPath * '" was missing or did not contain data') 'Config Error'
+            Function_Return False
+        End
+        
+        // Turn that into JSON
+        Get Create (RefClass(cJsonObject))  to hoConfig
+        Get ParseUtf8 of hoConfig ucaConfig to bOK
+        
+        If not bOK Begin
+            Get psParseError of hoConfig to sErr
+            Send Destroy of hoConfig
+            Send UserMessage ('Configuration file "' + sPath + '" was not valid JSON -' * sErr) 'Config Error'
+            Function_Return False
+        End
+        
+        Set phoConfig to hoConfig
+        Function_Return True
+    End_Function
+    
+    Function ReadArray String sDefs Handle hoDefs Returns String
+        Integer iLSBPos iRSBPos iIndex
+        Handle  hoMemb
+        String  sVal
+        
+        If ((not(hoDefs) or ;
+            (sDefs = ""))) ;
+            Function_Return ""
+        
+        Move (Pos("[", sDefs)) to iLSBPos
+        Move (Pos("]", sDefs)) to iRSBPos
+        
+        If (not(iLSBPos) or ;
+            not(iRSBPos) or ;
+            (iLSBPos > iRSBPos) or ;
+            (iLSBPos <> 1)) ;
+            Function_Return ""
+        
+        Move (Mid(sDefs, (iRSBPos - iLSBPos - 1), (iLSBPos + 1))) to iIndex
+        
+        If (MemberCount(hoDefs) <= iIndex) ;
+            Function_Return ""
+        
+        Get MemberByIndex of hoDefs iIndex to hoMemb
+
+        If (Length(Trim(sDefs)) = iRSBPos) Begin // It ends here
+            Get JsonValue of hoMemb to sVal
+            Send Destroy of hoMemb
+            Function_Return sVal
+        End
+
+        Move (Right(sDefs, (Length(sDefs) - iRSBPos))) to sDefs
+        If (Left(sDefs, 1) = ".") ;
+            Move (Replace(".", sDefs, "")) to sDefs
+        Get ReadSetting sDefs hoMemb to sVal
+        Send Destroy of hoMemb
+        Function_Return sVal
+    End_Function
+    
+    Function ReadSetting String sDefs Handle hoDefs Returns String
+        Integer iLSBPos iDotPos iPos
+        String  sMemb sVal
+        Handle  hoMemb
+
+        If ((not(hoDefs) or ;
+            (sDefs = ""))) ;
+            Function_Return ""
+            
+        If (Left(sDefs, 1) = "[") ;
+            Function_Return (ReadArray(Self, sDefs, hoDefs))
+        
+        Move (Pos(".", sDefs))      to iDotPos
+        Move (Pos("[", sDefs))      to iLSBPos
+        
+        If (iLSBPos and iDotPos) ;
+            Move (iDotPos min iLSBPos)  to iPos
+        Else If (iDotPos) ;
+            Move iDotPos                to iPos
+        Else ;
+            Move iLSBPos                to iPos
+        
+        If not iPos Begin  // We are there!
+            
+            If (HasMember(hoDefs, sDefs)) ;
+                Function_Return (MemberValue(hoDefs, sDefs))
+            Else ;
+                Function_Return ""
+        
+        End
+        
+        Move (Left(sDefs, (iPos - 1)))    to sMemb
+        
+        If (HasMember(hoDefs, sMemb)) Begin
+            Get Member of hoDefs sMemb to hoMemb
+            Move (Right(sDefs, (Length(sDefs) - iPos + 1))) to sDefs
+            If (Left(sDefs, 1) = ".") ;
+                Move (Replace(".", sDefs, "")) to sDefs
+            Get ReadSetting sDefs hoMemb to sVal
+            Send Destroy of hoMemb
+        End
+        
+        Function_Return sVal
+    End_Function
+    
+    Function Setting String sDefs Returns String
+        Handle hoConfig
+        
+        Get phoConfig to hoConfig
+        
+        If not hoConfig ;
+            Function_Return ""
+        
+        Function_Return (ReadSetting(Self, sDefs, hoConfig))
+    End_Function
+    
+End_Object
+
+// I wanted a terse global function name here, but if "Config" conflicts with
+// anything in your environment you can simply change it to whatever you want.
+Function Config Global String sDefs Returns String
+    Function_Return (Setting(ghoJsonConfig, sDefs))
+End_Function

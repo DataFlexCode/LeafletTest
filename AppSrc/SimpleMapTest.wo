@@ -1,0 +1,61 @@
+﻿Use cWebView.pkg
+Use cWebPanel.pkg
+Use cWebForm.pkg 
+Use cWebButton.pkg
+Use cWebSpacer.pkg
+Use cLeafletMappingControl.pkg
+Use GeoConnectors\cLocationIQConnector.pkg
+
+Object oSimpleMapTest is a cWebView
+    Set psCaption to "Simple Map Test"
+    
+    Delegate Set phoDefaultView to Self
+
+    Object oLocIQ is a cLocationIQConnector
+        Set pbFitMap to False
+    End_Object
+
+    Object oWebMainPanel is a cWebPanel
+        Set piColumnCount to 12
+        
+        Object oLocation is a cWebForm
+            Set piColumnSpan to 11
+            Set psLabel to "Location:"
+            Set peLabelAlign to alignRight
+            Set piLabelOffset to 80
+            Set psValue to "CPH Conference, Tietgensgade 65, 1704 Copenhagen, Denmark"
+        End_Object
+
+        Object oSend is a cWebButton
+            Set piColumnSpan to 1
+            Set piColumnIndex to 11
+            Set psCaption to "Send"
+        
+            Procedure OnClick
+                String sLoc
+                Handle hoJson
+                
+                WebGet psValue of oLocation     to sLoc
+                Get FreeQuery of oLocIQ sLoc    to hoJson
+                
+                If hoJson Begin
+                    Send DrawMap of oLocIQ hoJson (oMap(Self))
+                    Send PlaceMarker of oLocIQ (oMap(Self)) ""
+                    Send Destroy of hoJson
+                End
+                Else ;
+                    Send ShowInfoBox (psError(oLocIQ)) "Request Failed"
+                
+            End_Procedure
+            
+        End_Object
+
+        Object oWebSpacer1 is a cWebSpacer
+        End_Object
+        
+        Object oMap is a cLeafletMappingControl
+        End_Object
+        
+    End_Object 
+
+End_Object

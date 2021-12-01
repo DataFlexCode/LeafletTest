@@ -1,0 +1,57 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0">
+    
+    <title></title>
+    
+    <link rel="shortcut icon" href="favicon.ico" sizes="48x48" />
+    
+    <!-- Hiding Safari User Interface Components -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    
+    <!-- DataFlex Engine -->
+    <script>
+        //  Uncomment the following line to optimize the initialization (make sure that the right theme is set)
+        //var sDfPreloadTheme = "Df_Material";
+    </script>
+    
+    <script src="DfEngine/df-include.js"></script>
+    
+    <!-- DataFlex Custom Controls (do not remove this line, used for automatic insertion) -->
+    
+    <!-- Support for Leaflet mapping stuff -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+        crossorigin=""/>    
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+          integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+          crossorigin=""></script>
+
+    <!-- Leaflet map prining plugin -->
+    <script src="JS/leaflet.browser.print.min.js"></script>
+
+    <!-- DataFlex Leaflet Control -->
+    <script src="JS/leafletMappingControl.js"></script>
+    
+    <!-- Initialization of the WebApp -->
+    <script>
+        var oWebApp = new df.WebApp("WebServiceDispatcher.wso");
+        
+        oWebApp.displayApp("#viewport");
+    </script>
+    
+    <style>
+        html, body{
+        height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="viewport" style="width: 100%; height: 100%;">
+        
+    </div>
+</body>
+</html>

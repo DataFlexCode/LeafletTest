@@ -1,0 +1,97 @@
+﻿Use cGeocodeConnector.pkg
+
+Class cPositionStackConnector is a cGeocodeConnector
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+
+        Set psHost      to "api.positionstack.com"
+        Set psPath      to "v1/forward"
+        Set psKey       to (Config("tokens.positionStackKey"))
+        Set psName      to "Position Stack"
+        Set psID        to "POSSTK"
+        Set psWebSite   to "https://positionstack.com/"
+        
+        Property Number[] panBoundingBox
+        
+        // Position Stack free plan doesn't use HTTPS, so:
+        Set piRemotePort    of oHttp to rpHttp
+        Set peTransferFlags of oHttp to 0
+    End_Procedure
+    
+    Function FreeQuery String sQuery Returns Handle
+        Handle  hoJson
+        Boolean bOK
+        
+        Move (Replaces(" ", sQuery, "%20")) to sQuery
+        Move ("query=" + sQuery)            to sQuery
+        Get DoGeoQuery sQuery               to hoJson
+        
+        Function_Return hoJson
+    End_Function
+    
+    Function StructuredQuery String[] asParams Returns Handle
+        String[] asQuery
+        String   sQuery
+        Handle   hoJson
+        
+        If (asParams[6] <> "") ;
+            Move (asParams[6] * asParams[5])    to asParams[5]
+        If (asParams[5] <> "") ;       
+            Move asParams[5]                    to asQuery[SizeOfArray(asQuery)]
+        If (asParams[4] <> "") ;
+            Move asParams[4]                    to asQuery[SizeOfArray(asQuery)]
+        If (asParams[3] <> "") ;
+            Move asParams[3]                    to asQuery[SizeOfArray(asQuery)]
+        If (asParams[2] <> "") ;
+            Move asParams[2]                    to asQuery[SizeOfArray(asQuery)]
+        If (asParams[1] <> "") ;
+            Move asParams[1]                    to asQuery[SizeOfArray(asQuery)]
+        If (asParams[0] <> "") ;
+            Move asParams[0]                    to asQuery[SizeOfArray(asQuery)]
+        
+        Move (StrJoinFromArray(asQuery, ", "))  to sQuery
+        Move (Replaces(" ", sQuery, "%20"))     to sQuery
+        Get DoGeoQuery ("query=" + sQuery)      to hoJson
+        
+        Function_Return hoJson
+    End_Function
+    
+    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+        String  sQuery
+        Handle  hoJson
+        
+        Move ("query=" + sPostcode + ", " + sCountry)   to sQuery
+        Move (Replaces(" ", sQuery, "%20"))     to sQuery
+        Get DoGeoQuery sQuery                           to hoJson
+        
+        Function_Return hoJson
+    End_Function
+    
+    Procedure ExtractData Handle hoJson
+        Number nLat nLng
+        Handle hoBox
+        Number[] anBox
+        
+        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "data.[0].latitude"))
+        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "data.[0].longitude"))
+
+        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "data.[0].label"))
+    End_Procedure
+    
+    Procedure DrawMap Handle hoJson Handle hoMap
+        Number[]  anBox
+        stPolygon tBox
+        String    sName
+        
+        If not hoMap ;
+            Procedure_Return
+        If (pnLat(Self) = 100) ;
+            Procedure_Return
+
+        Forward Send DrawMap hoJson hoMap
+
+        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))
+    End_Procedure
+    
+End_Class

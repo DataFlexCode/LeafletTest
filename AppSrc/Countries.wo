@@ -1,0 +1,304 @@
+﻿Use cWebView.pkg
+Use cWebPanel.pkg
+Use cWebForm.pkg
+Use seq_chnl.pkg
+Use cJsonPath.pkg
+
+Use cLeafletMappingControl.pkg
+Use cWebCombo.pkg
+Use cWebButton.pkg
+Use cWebSpacer.pkg
+
+Object oCountries is a cWebView
+    Set psCaption to "Countries Sample"
+    
+    Property Handle     phoCountriesData
+    Property String[]   pasCountryNames
+    Property Integer[]  paiCountryIndexes
+    
+    Object oJPath is a cJsonPath
+    End_Object
+
+    Procedure LoadData
+        UChar[]  ucaData
+        Integer  iChn iMax i
+        String   sHome sName sISO_A3
+        String[] asNames
+        Handle   hoJson hoFeatures hoFeature
+        Boolean  bOK
+        
+        Move (psHome(phoWorkspace(ghoApplication))) to sHome
+        Get Seq_New_Channel to iChn
+        Direct_Input channel iChn (sHome + "countries.geojson")
+        
+        If (SeqEof) Begin
+            Close_Input channel iChn
+            Send Seq_Release_Channel iChn
+            Procedure_Return
+        End
+
+        // Read in file
+        Read_Block channel iChn ucaData -1
+        Close_Input channel iChn
+        Send Seq_Release_Channel iChn
+        
+        Get Create (RefClass(cJsonObject)) to hoJson
+        Get ParseUtf8 of hoJson ucaData to bOK
+
+        If bOK ;
+            Set phoCountriesData to hoJson
+        Else Begin
+            Send Destroy of hoJson
+            Procedure_Return
+        End
+
+        Move (JsonAtPath(oJPath, hoJson, "features")) to hoFeatures
+        Move (MemberCount(hoFeatures)) to iMax
+        Decrement iMax
+        
+        For i from 0 to iMax
+            Get MemberByIndex of hoFeatures i to hoFeature
+            Move (ValueAtPath(oJPath, hoFeature, "properties.ADMIN"))   to sName
+            Move (ValueAtPath(oJPath, hoFeature, "properties.ISO_A3"))  to sISO_A3
+            Move (sName * "(" + sISO_A3 + ")") to asNames[i]
+            Send Destroy of hoFeature
+        Loop
+        
+        Set pasCountryNames to asNames
+        Send Destroy of hoFeatures
+    End_Procedure
+    
+    Procedure End_Construct_Object
+        Send LoadData
+        
+        Forward Send End_Construct_Object
+    End_Procedure
+    
+    Function PolygonFromData Handle hoJson Returns stPolygon
+        stPolygon tPoly
+        Integer   i iMax
+        
+        Get JsonToDataType of hoJson to tPoly.aPoints
+        Move (SizeOfArray(tPoly.aPoints) - 1) to iMax
+        
+        // Lat/Lng are reveresed in this data, so...
+        For i from 0 to iMax
+            Move (ReverseArray(tPoly.aPoints[i])) to tPoly.aPoints[i]
+        Loop
+
+        Move (Config("defaults.polygon.lineColor"))     to tPoly.sLineColor
+        Move (Config("defaults.polygon.lineWeight"))    to tPoly.iLineWeight
+        Move (Config("defaults.polygon.lineOpacity"))   to tPoly.nLineOpacity
+        Move (Config("defaults.polygon.fillColor"))     to tPoly.sFillColor
+        Move (Config("defaults.polygon.fillOpacity"))   to tPoly.nFillOpacity
+        Move True                                       to tPoly.bStroke                    
+        
+        Send Destroy of hoJson
+        Function_Return tPoly
+    End_Function
+    
+    Procedure PlotMap
+        Integer     iIdx iMaxSet iPoly iSubSets i j iMaxPoint
+        Handle      hoData hoCoords hoSet hoPoint hoSubPt hoSubSet
+        stPolygon[] atPolys
+        stPolygon   tPoly
+        stPolygons  tEmptyPolys
+        Boolean     bFitBounds
+        Number      nMinN nMinE nMaxN nMaxE
+        
+        Move  100 to nMinN
+        Move  200 to nMinE
+        Move -100 to nMaxN
+        Move -200 to nMaxE
+        
+        WebSet ptPolygons of oMap to tEmptyPolys  // Clear the polygons
+        
+        // Get the appropriate country data from the JSON:
+        WebGet psValue of oCountrySel to iIdx
+        Get phoCountriesData of oCountries to hoData
+        Move (JsonAtPath(oJPath, hoData, "features.[" + String(iIdx) + "].geometry.coordinates")) to hoCoords
+        
+        If not hoCoords ;
+            Procedure_Return
+        
+        Get MemberCount of hoCoords to iMaxSet
+        Decrement iMaxSet
+        Move 0 to iPoly
+        
+        // Iterate through sets of points
+        For i from 0 to iMaxSet
+            Get MemberByIndex of hoCoords i to hoSet
+            
+            Get MemberCount of hoSet to iSubSets
+            
+            // If no contents, quit:
+            If not iSubSets ;
+                Procedure_Return
+            
+            // Now check to see if hoSet is actually a set of points
+            Get MemberByIndex of hoSet 0 to hoPoint
+            
+            // Ensure it is an array:
+            If (JsonType(hoPoint) <> jsonTypeArray) ;
+                Procedure_Return
+            
+            Get MemberByIndex of hoPoint 0 to hoSubPt
+            
+            If (JsonType(hoSubPt) = jsonTypeDouble) Begin  // hoSet *is* a set of points
+                Send Destroy of hoSubPt  // Lose this
+                Send Destroy of hoPoint  // and this
+                
+                Get PolygonFromData hoSet to tPoly
+                
+                If (iPoly = 0) ;
+                    Move True to tPoly.bFitMap
+                    
+                Move tPoly to atPolys[iPoly]
+                Increment iPoly
+            End
+            Else Begin  // hoSet is *not* just a set of points
+                Send Destroy of hoSubPt  // Lose this
+                Send Destroy of hoPoint  // and this
+
+                Decrement iSubSets  // MemberCount of hoSets
+                Move True to bFitBounds
+                
+                For j from 0 to iSubSets
+                    Get MemberByIndex of hoSet j to hoSubSet
+                    
+                    Get PolygonFromData hoSubSet to tPoly
+                    
+                    Move tPoly to atPolys[iPoly]
+                    Increment iPoly
+                Loop
+                
+            End
+            
+        Loop
+        
+        Send GeoContributor of oMap "DataHub" "https://datahub.io/" "Countries GeoJson" False
+        Send DrawMap of oMap atPolys[0].aPoints[0][0] atPolys[0].aPoints[0][1] 8 22
+
+        Move (SizeOfArray(atPolys) - 1) to iMaxSet
+        
+        For iPoly from 0 to iMaxSet
+            
+            If bFitBounds Begin
+                Move (SizeOfArray(atPolys[iPoly].aPoints) - 1) to iMaxPoint
+            
+                For i from 0 to iMaxPoint
+                    Move (nMinN min atPolys[iPoly].aPoints[i][0]) to nMinN
+                    Move (nMinE min atPolys[iPoly].aPoints[i][1]) to nMinE
+                    Move (nMaxN max atPolys[iPoly].aPoints[i][0]) to nMaxN
+                    Move (nMaxE max atPolys[iPoly].aPoints[i][1]) to nMaxE
+                Loop
+            
+            End
+            
+            Send DrawPolygon of oMap atPolys[iPoly]
+        Loop
+        
+        If bFitBounds ;
+            Send FitBounds of oMap nMinN nMinE nMaxN nMaxE
+    End_Procedure
+
+    Object oWebMainPanel is a cWebPanel
+        Set piColumnCount to 12
+
+        Object oCountrySel is a cWebCombo
+            Set piColumnSpan to 4
+            Set psLabel to "Select Country"
+            Set peLabelAlign to alignRight
+            
+            Procedure OnFill
+                String[] asNames
+                Integer  i iMax
+                
+                Get pasCountryNames of oCountries to asNames
+                Move (SizeOfArray(asNames) - 1) to iMax
+                
+                For i from 0 to iMax
+                    Send AddComboItem i asNames[i]
+                Loop                
+                
+            End_Procedure
+            
+            Set pbServerOnShow to True
+            Procedure OnShow
+                String[] asNames
+                
+                Get pasCountryNames to asNames
+                WebSet psValue to asNames[0]
+            End_Procedure
+            
+        End_Object
+
+        Object oDoMap is a cWebButton
+            Set piColumnSpan to 1
+            Set piColumnIndex to 4
+            Set psCaption to "Draw Map"
+        
+            Procedure OnClick
+                Send PlotMap
+            End_Procedure
+            
+        End_Object
+        
+        Object oResolution is a cWebCombo
+            Set piColumnIndex to 8
+            Set piColumnSpan to 2
+            Set psLabel to "Res:"
+            Set peLabelAlign to alignRight
+            Set piLabelOffset to 60
+            Set psValue to "256"
+            
+            Procedure OnFill
+                Send AddComboItem "256"  "256"
+                Send AddComboItem "512"  "512"
+                Send AddComboItem "1024" "1024"
+            End_Procedure
+            
+            Set pbServerOnChange to True
+            Procedure OnChange String sNewValue String sOldValue
+                WebSet psTileSize     of oMap to sNewValue
+                Send ChangeResolution of oMap    sNewValue
+            End_Procedure
+
+        End_Object
+    
+        Object oMapLayer is a cWebCombo
+            Set piColumnIndex to 10
+            Set piColumnSpan to 2
+            Set psLabel to "View:"
+            Set peLabelAlign to alignRight
+            Set piLabelOffset to 60
+            Set psValue to "Map view"
+            
+            Procedure OnFill
+                    Send AddComboItem "mapbox/streets-v11"              "Streets view"
+                    Send AddComboItem "mapbox/outdoors-v11"             "Outdoors view"
+                    Send AddComboItem "mapbox/light-v10"                "Light view"
+                    Send AddComboItem "mapbox/dark-v10"                 "Dark view"
+                    Send AddComboItem "mapbox/satellite-v9"             "Satellite view"
+                    Send AddComboItem "mapbox/satellite-streets-v11"    "Satellite Streets view"
+                    Send AddComboItem "mapbox/navigation-day-v1"        "Navigation view (day)"
+                    Send AddComboItem "mapbox/navigation-night-v1"      "Navigation view (night)"
+            End_Procedure
+            
+            Set pbServerOnChange to True
+            Procedure OnChange String sNewValue String sOldValue
+                WebSet psLayerID of oMap to sNewValue
+                Send ChangeLayer of oMap    sNewValue
+            End_Procedure
+            
+        End_Object
+
+        Object oWebSpacer1 is a cWebSpacer
+        End_Object
+        
+        Object oMap is a cLeafletMappingControl
+        End_Object
+        
+    End_Object
+    
+End_Object

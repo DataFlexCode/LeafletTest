@@ -1,0 +1,514 @@
+﻿Use cWebView.pkg
+Use cWebPanel.pkg
+Use cWebForm.pkg
+Use cWebCheckBox.pkg
+Use cWebCombo.pkg
+Use cWebSpacer.pkg
+Use cWebButton.pkg
+Use cWebHorizontalLine.pkg
+
+Use cLeafletMappingControl.pkg
+Use cGeocodeHost.pkg
+
+Use GeoConnectors\cLocationIQConnector.pkg
+Use GeoConnectors\cMapQuestOpenConnector.pkg
+Use GeoConnectors\cHereConnector.pkg
+Use GeoConnectors\cPositionStackConnector.pkg
+Use GeoConnectors\cGeocodeIOConnector.pkg
+Use GeoConnectors\cOpenCageConnector.pkg
+Use GeoConnectors\cTrimbleConnector.pkg
+Use GeoConnectors\cWhat3WordsConnector.pkg
+Use GeoConnectors\cGoogleMapsConnector.pkg
+
+Object oTestGeoMap is a cWebView
+    Set psCaption to "GeoMapping Test"
+    
+//    Property String psScanducMarker "Images/Scanduc-marker-icon.png"
+    Property String psScanducMarker "Images/Scanduc-pointer-icon.png"
+    
+    Object oGeocodeHost is a cGeocodeHost
+        
+        Object oLocIQ is a cLocationIQConnector
+            Set pbFitMap to False
+        End_Object
+        
+        Object oOMapQ is a cMapQuestOpenConnector
+        End_Object
+        
+        Object oPosStk is a cPositionStackConnector
+        End_Object
+        
+        Object oGeoIO is a cGeocodeIOConnector
+        End_Object
+        
+        Object oOpenCage is a cOpenCageConnector
+        End_Object
+        
+        Object oHere is a cHereConnector
+        End_Object
+        
+        Object oTrimble is a cTrimbleConnector
+        End_Object
+        
+        Object oWhat3Words is a cWhat3WordsConnector
+        End_Object
+        
+        Object oGoogleMaps is a cGoogleMapsConnector
+        End_Object
+        
+    End_Object
+    
+    Procedure ProcessReturn Handle hoService Handle hoJson
+        Set peWhiteSpace of hoJson to jpWhitespace_Pretty
+        Set pbEscapeForwardSlash of hoJson to False
+        WebSet psValue of oResult to (Stringify(hoJson))
+        Send DrawMap of hoService hoJson (oMap(Self)) 
+        Send Destroy of hoJson
+        WebSet psValue of oQuery to (psQuery(hoService))
+    End_Procedure
+    
+    Object oWebMainPanel is a cWebPanel
+        Set piColumnCount to 12
+        
+        Object oMainGroup is a cWebGroup
+            Set piColumnSpan to 5
+            Set piColumnIndex to 0
+            Set piColumnCount to 12
+            Set pbFillHeight to True
+            Set pbShowBorder to False
+            Set pbShowCaption to False
+            
+            Object oMapMyLocBtn is a cWebButton
+                Set piColumnSpan to 3
+                Set piColumnIndex to 8
+                Set psCaption to "Current Location"
+                
+                Procedure OnClick
+                    WebSet psValue of oQuery    to ""
+                    WebSet psValue of oResult   to ""
+                    Send GetMyLocation of oMap
+                End_Procedure
+
+            End_Object
+    
+            Object oLatitude is a cWebForm
+                Set piColumnSpan to 4
+                Set psLabel to "Lat:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 50
+                Set peDataType to typeNumber
+                Set piPrecision to 8
+                Set psValue to "45.43401193"
+            End_Object
+            
+            Object oLongitude is a cWebForm
+                Set piColumnSpan to 4
+                Set piColumnIndex to 4
+                Set psLabel to "Lng:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 50
+                Set peDataType to typeNumber
+                Set piPrecision to 8
+                Set psValue to "12.33826586"
+            End_Object
+            
+            Object oSendLL is a cWebButton
+                Set piColumnSpan to 3
+                Set piColumnIndex to 8
+                Set psCaption to "Send Lat/Lng"
+                
+                Procedure OnClick
+                    Integer iInitZoom
+                    Number  nLat nLng
+                    
+                    WebSet psValue of oQuery                        to ""
+                    WebSet psValue of oResult                       to ""
+                    WebGet psValue of oInitialZoom to iInitZoom
+                    WebGet psValue of oLatitude    to nLat
+                    WebGet psValue of oLongitude   to nLng
+                    
+                    Send DrawMap of oMap nLat nLng iInitZoom 22
+                    Send DrawMarker of oMap nLat nLng ("Ah! Venice! (" + String(nLat) + " N/" + String(nLng) + " E)") "" False
+                End_Procedure
+                
+            End_Object
+
+            Object oWebHorizontalLine1 is a cWebHorizontalLine
+                Set piHeight to 25
+            End_Object            
+            
+            Object oGeoService is a cWebCombo
+                Set piColumnSpan to 7
+                Set psLabel to "Service Provider:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 110
+                Set pbAddEmptyItem to True
+                
+                Procedure OnFill
+                    String[] asIDs asNames
+                    Integer  i iMax
+                    
+                    Get pasConnectorIDs   of oGeocodeHost   to asIDs
+                    Get pasConnectorNames of oGeocodeHost   to asNames
+                    Move (SizeOfArray(asIDs) - 1)           to iMax
+                    
+                    For i from 0 to iMax
+                        Send AddComboItem asIDs[i] asNames[i]
+                    Loop
+                    
+                End_Procedure
+    
+            End_Object
+    
+            Object oWebSpacer1 is a cWebSpacer
+                Set piColumnSpan to 12
+                Set piHeight to 20
+            End_Object
+                    
+            Object oFreeQuery is a cWebForm
+                Set piColumnSpan to 12
+                Set psLabel to "Free Text Query:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 110
+                Set psValue to "CPH Conference, Tietgensgade 65, 1704 Copenhagen, Denmark"
+            End_Object
+            
+            Object oSendFreeQryBtn is a cWebButton
+                Set piColumnSpan to 4
+                Set piColumnIndex to 8
+                Set psCaption to "Send Free Text"
+            
+                Procedure OnClick
+                    String  sServ sQuery
+                    Handle  hoServ hoJson
+                    Integer iInitZoom
+                    
+                    WebSet psValue of oQuery                        to ""
+                    WebSet psValue of oResult                       to ""
+                    WebGet psValue of oGeoService                   to sServ
+                    Get ConnectorObjectFromID of oGeocodeHost sServ to hoServ
+                    
+                    If not hoServ Begin
+                        Send ShowInfoBox "Please select a Service Provider first" "User Error"
+                        Procedure_Return
+                    End
+                    
+                    WebGet psValue of oInitialZoom to iInitZoom
+                    Set piZoom of hoServ to iInitZoom
+                    WebGet psValue of oFreeQuery  to sQuery
+                    Get FreeQuery of hoServ sQuery to hoJson
+                    
+                    If hoJson Begin
+                        Send ProcessReturn hoServ hoJson
+                        If (GetChecked(oShowMarker(Self))) ;
+                            Send PlaceMarker of hoServ (oMap(Self)) ;
+                                (If((GetChecked(oCustomMarker(Self))), psScanducMarker(Self), ""))
+                    End
+                    Else ;
+                        Send ShowInfoBox (psError(hoServ)) "Request Failed"
+                    
+                End_Procedure
+                
+            End_Object
+    
+            Object oCountry is a cWebForm
+                Set piColumnSpan to 9
+                Set psLabel to "Country:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 110
+                Set psValue to "GB"
+            End_Object
+    
+            Object oPostcode is a cWebForm
+                Set piColumnSpan to 9
+                Set psLabel to "Postal Code:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 110
+                Set psValue to "GU26 6EX"
+            End_Object
+    
+            Object oState is a cWebForm
+                Set piColumnSpan to 9
+                Set psLabel to "State:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 110
+                Set psValue to "England"
+            End_Object
+    
+            Object oCounty is a cWebForm
+                Set piColumnSpan to 9
+                Set psLabel to "County:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 110
+                Set psValue to "Surrey"
+            End_Object
+    
+            Object oCity is a cWebForm
+                Set piColumnSpan to 9
+                Set psLabel to "City:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 110
+                Set psValue to "Hindhead"
+            End_Object
+    
+            Object oStreet is a cWebForm
+                Set piColumnSpan to 9
+                Set psLabel to "Street:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 110
+                Set psValue to "Kingswood Firs"
+            End_Object
+    
+            Object oHouse is a cWebForm
+                Set piColumnSpan to 4
+                Set psLabel to "House Number:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 110
+                Set psValue to "8"
+            End_Object
+    
+            Object oSendStructAddrBtn is a cWebButton
+                Set piColumnSpan to 4
+                Set piColumnIndex to 4
+                Set psCaption to "Send Structured"
+            
+                Procedure OnClick
+                    Handle   hoServ
+                    String   sServ
+                    String[] asParams
+                    Handle   hoJson
+                    Integer  iInitZoom        
+                    
+                    WebSet psValue of oQuery                        to ""
+                    WebSet psValue of oResult                       to ""
+                    WebGet psValue of oGeoService                   to sServ
+                    Get ConnectorObjectFromID of oGeocodeHost sServ to hoServ
+                    
+                    If not hoServ Begin
+                        Send ShowInfoBox "Please select a Service Provider first" "User Error"
+                        Procedure_Return
+                    End
+                                            
+                    WebGet psValue of oInitialZoom to iInitZoom
+                    Set piZoom of hoServ to iInitZoom
+                    
+                    WebGet psValue of oCountry  to asParams[0]
+                    WebGet psValue of oPostcode to asParams[1]
+                    WebGet psValue of oState    to asParams[2]
+                    WebGet psValue of oCounty   to asParams[3]
+                    WebGet psValue of oCity     to asParams[4]
+                    WebGet psValue of oStreet   to asParams[5]
+                    WebGet psValue of oHouse    to asParams[6]
+                    Get StructuredQuery of hoServ asParams to hoJson
+                    
+                    If hoJson Begin
+                        Send ProcessReturn hoServ hoJson
+                        If (GetChecked(oShowMarker(Self))) ;
+                            Send PlaceMarker of hoServ (oMap(Self)) ;
+                                (If((GetChecked(oCustomMarker(Self))), psScanducMarker(Self), ""))
+                    End
+                    Else ;
+                        Send ShowInfoBox (psError(hoServ)) "Request Failed"
+                    
+                End_Procedure
+                
+            End_Object
+    
+            Object oSendPostcodeQuery is a cWebButton
+                Set piColumnSpan to 4
+                Set piColumnIndex to 8
+                Set psCaption to "Send Postcode"
+            
+                Procedure OnClick
+                    String  sService sCountry sPostcode sHouse
+                    Handle  hoServ hoJson
+                    Integer iInitZoom
+                    
+                    WebSet psValue of oQuery                            to ""
+                    WebSet psValue of oResult                           to ""
+                    WebGet psValue of oGeoService                       to sService
+                    Get ConnectorObjectFromID of oGeocodeHost sService to hoServ
+
+                    If not hoServ Begin
+                        Send ShowInfoBox "Please select a Service Provider first" "User Error"
+                        Procedure_Return
+                    End
+                                            
+                    WebGet psValue of oInitialZoom to iInitZoom
+                    Set piZoom of hoServ to iInitZoom
+    
+                    WebGet psValue of oCountry  to sCountry
+                    WebGet psValue of oPostcode to sPostcode
+                    WebGet psValue of oHouse    to sHouse
+                    Get PostcodeQuery of hoServ sCountry sPostcode sHouse to hoJson
+                    
+                    If hoJson Begin
+                        Send ProcessReturn hoServ hoJson
+                        If (GetChecked(oShowMarker(Self))) ;
+                            Send PlaceMarker of hoServ (oMap(Self)) ;
+                                (If((GetChecked(oCustomMarker(Self))), psScanducMarker(Self), ""))
+                    End
+                    Else ;
+                        Send ShowInfoBox (psError(hoServ)) "Request Failed"
+                    
+                End_Procedure
+                
+            End_Object
+            
+            Object oQuery is a cWebEdit
+                Set piColumnSpan to 0
+                Set psLabel to "Query:"
+                Set peLabelPosition to lpTop
+                Set piHeight to 100
+            End_Object
+        
+            Object oResult is a cWebEdit
+                Set piColumnSpan to 0
+                Set psLabel to "Result:"
+                Set pbFillHeight to True
+                Set peLabelPosition to lpTop
+            End_Object
+            
+        End_Object
+        
+        Object oMapGroup is a cWebGroup
+            Set piColumnSpan to 7
+            Set piColumnIndex to 5
+            Set piColumnCount to 20
+            Set pbFillHeight to True
+            Set pbShowBorder to False
+            Set pbShowCaption to False
+
+            Object oShowMarker is a cWebCheckbox
+                Set piColumnSpan to 3
+                Set piColumnIndex to 0
+                Set psCaption to "Show marker"
+                Set psValue to True
+            End_Object
+
+            Object oCustomMarker is a cWebCheckbox
+                Set piColumnSpan to 3
+                Set piColumnIndex to 3
+                Set psCaption to "Scanduc Icon"
+                Set Value to False
+            End_Object
+    
+            Object oInitialZoom is a cWebCombo
+                Set piColumnIndex to 6
+                Set piColumnSpan to 5
+                Set psLabel to "Initial Zoom:"
+                Set peLabelAlign to alignRight
+                Set peAlign to alignRight
+                Set piLabelOffset to 120
+                Set psValue to 12
+                
+                Procedure OnFill
+                    Integer i
+                    
+                    For i from 1 to 22
+                        Send AddComboItem i i
+                    Loop
+                    
+                End_Procedure
+                
+            End_Object
+            
+            Object oResolution is a cWebCombo
+                Set piColumnIndex to 11
+                Set piColumnSpan to 3
+                Set psLabel to "Res:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 60
+                Set psValue to "256"
+                
+                Procedure OnFill
+                    Send AddComboItem "256"  "256"
+                    Send AddComboItem "512"  "512"
+                    Send AddComboItem "1024" "1024"
+                End_Procedure
+                
+                Set pbServerOnChange to True
+                Procedure OnChange String sNewValue String sOldValue
+                    WebSet psTileSize     of oMap to sNewValue
+                    Send ChangeResolution of oMap    sNewValue
+                End_Procedure
+
+            End_Object
+    
+            Object oMapLayer is a cWebCombo
+                Set piColumnIndex to 14
+                Set piColumnSpan to 6
+                Set psLabel to "View:"
+                Set peLabelAlign to alignRight
+                Set piLabelOffset to 60
+                Set psValue to "Map view"
+                
+                Procedure OnFill
+                    Send AddComboItem "mapbox/streets-v11"              "Streets view"
+                    Send AddComboItem "mapbox/outdoors-v11"             "Outdoors view"
+                    Send AddComboItem "mapbox/light-v10"                "Light view"
+                    Send AddComboItem "mapbox/dark-v10"                 "Dark view"
+                    Send AddComboItem "mapbox/satellite-v9"             "Satellite view"
+                    Send AddComboItem "mapbox/satellite-streets-v11"    "Satellite Streets view"
+                    Send AddComboItem "mapbox/navigation-day-v1"        "Navigation view (day)"
+                    Send AddComboItem "mapbox/navigation-night-v1"      "Navigation view (night)"
+                End_Procedure
+                
+                Set pbServerOnChange to True
+                Procedure OnChange String sNewValue String sOldValue
+                    WebSet psLayerID of oMap to sNewValue
+                    Send ChangeLayer of oMap    sNewValue
+                End_Procedure
+                
+            End_Object
+        
+            Object oMap is a cLeafletMappingControl
+                Set piColumnSpan to 0
+                Set piColumnIndex to 0
+                Set psLabel to "Map:"
+                Set pbFillHeight to True
+                Set peLabelPosition to lpTop
+                Set pbShowLabel to True
+                
+                { WebProperty=Client }
+                Property Integer piMark# 0
+                
+                // Just augmented to reset piMark# to zero on each map draw
+                Procedure DrawMap Number nNorth Number nEast Integer iInitZoom Integer iMaxZoom
+                    WebSet piMark# to 0
+                    
+                    Forward Send DrawMap nNorth nEast iInitZoom iMaxZoom
+                End_Procedure
+                
+                Procedure MyLocation Number nLat Number nLng
+                    Integer iInitZoom
+                    Boolean bMark bCustom
+                    
+                    WebGet psValue of oInitialZoom  to iInitZoom
+                    WebGet psValue of oShowMarker   to bMark
+                    WebGet psValue of oCustomMarker to bCustom
+                    Send DrawMap nLat nLng iInitZoom 22
+                    If bMark ;
+                        Send DrawMarker nLat nLng "" (If(bCustom, "Images/Scanduc-pointer-icon.png", "")) False
+                    WebSet psValue of oResult to ("Lat:" * String(nLat) + "," * "Lng:" * String(nLng))
+                End_Procedure
+                
+                Set pbServerOnMapClick to True
+                Procedure OnMapClick String sLat String sLng
+                    Integer i
+                    
+                    WebGet piMark# to i
+                    Increment i
+                    WebSet piMark# to i
+                    
+                    Send DrawMarker sLat sLng ("Marker" * "#" + String(i) * ;
+                                               "at" * sLat + "/" + sLng) "" False
+                End_Procedure
+                
+            End_Object
+
+        End_Object
+
+    End_Object
+        
+End_Object

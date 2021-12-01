@@ -1,0 +1,59 @@
+﻿Use cGeocodeConnector.pkg
+
+Class cTrimbleConnector is a cGeocodeConnector
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+
+        Set psHost      to "api.positionstack.com"
+        Set psPath      to "v1/forward"
+        Set psKey       to (Config("tokens.trimbleKey"))
+        Set psName      to "Trimble"
+        Set psID        to "TRIMBLE"
+        Set psWebSite   to "https://developer.trimblemaps.com/"
+        
+        Property Number[] panBoundingBox
+        
+        // Position Stack free plan doesn't use HTTPS, so:
+        Set piRemotePort    of oHttp to rpHttp
+        Set peTransferFlags of oHttp to 0
+    End_Procedure
+    
+    Function FreeQuery String sQuery Returns Handle
+        Handle  hoJson
+        Boolean bOK
+        
+        Move ("query=" + sQuery)            to sQuery
+        Move (Replaces(" ", sQuery, "%20")) to sQuery
+        Get DoGeoQuery sQuery               to hoJson
+        
+        Function_Return hoJson
+    End_Function    
+    
+    Procedure ExtractData Handle hoJson
+        Number nLat nLng
+        Handle hoBox
+        Number[] anBox
+        
+        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "data.[0].latitude"))
+        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "data.[0].longitude"))
+
+        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "data.[0].label"))
+    End_Procedure
+    
+    Procedure DrawMap Handle hoJson Handle hoMap
+        Number[]  anBox
+        stPolygon tBox
+        String    sName
+        
+        If not hoMap ;
+            Procedure_Return
+        If (pnLat(Self) = 100) ;
+            Procedure_Return
+
+        Forward Send DrawMap hoJson hoMap
+
+        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))
+    End_Procedure
+    
+End_Class

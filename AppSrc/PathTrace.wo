@@ -1,0 +1,410 @@
+﻿Use cWebView.pkg
+Use cWebPanel.pkg
+Use cWebForm.pkg 
+Use cLeafletMappingControl.pkg
+Use Flexml.pkg
+Use seq_chnl.pkg
+Use cWebCombo.pkg
+Use cWebButton.pkg
+Use cWebCheckBox.pkg
+Use cWebSpacer.pkg
+Use cWebEdit.pkg
+
+Object oPathTrace is a cWebView
+    Set psCaption to "Path Trace Example"
+    
+    Object oWebMainPanel is a cWebPanel
+        Set piColumnCount to 12
+
+        Object oTraces is a cWebCombo
+            Set piColumnSpan to 5
+            Set psLabel to "Select a trace:"
+            Set peLabelAlign to alignRight
+            
+            
+// JUST PUTTING THIS WHERE IT WON'T CONFUSE ME!            
+//                    Get FindNode of hoDoc "METADATA" to hoElem1
+//                    Get FindNode of hoXML "METADATA" to hoElem2
+//                    
+//                    Get FindNode of hoDoc "gpx" to hoElem1
+//                    Get FindNode of hoXML "gpx" to hoElem2
+//                    
+//                    Get FindNode of hoDoc "/gpx" to hoElem1
+//                    Get FindNode of hoXML "/gpx" to hoElem2
+//                    
+//                    Get FindNode of hoXml "//metadata" to hoElem1
+//                    Get FindNode of hoDoc "//metadata" to hoElem2
+//                    
+//                    Get FindNode of hoXml "/metadata" to hoElem3
+//                    Get FindNode of hoDoc "/metadata" to hoElem4
+//                    
+//                    Get FindNode of hoXml "metadata" to hoElem1
+//                    Get FindNode of hoDoc "metadata" to hoElem2
+//                    
+//                    
+//                    Get FindNode of hoDoc "trk/name" to hoElem1
+//                    Get FindNode of hoDoc "/trk/name" to hoElem2
+//                    Get FindNode of hoXml "trk/name" to hoElem3
+//                    Get FindNode of hoXml "/trk/name" to hoElem4
+//                    
+//                    Get FindNode of hoXml "descendant::author" to hoElem1
+//                    Get FindNode of hoDoc "descendant::author" to hoElem2
+//                    
+//                    Get FindNodeList of hoXml "/gpx" to hoElems
+//                    
+//                    If hoElems Begin
+//                        Integer j iMax2
+//                        
+//                        Get NodeListLength of hoElems to iMax2
+//                        
+//                        For j from 0 to iMax2
+//                            Get CollectionNode of hoElems j to hoElem1
+//                        Loop
+//                    End
+//                    
+//                    If hoElem1 Begin
+//                        
+//                        
+//                        
+//                        Send AddComboItem asPaths[i] (psText(hoElem1))
+//                        Send Destroy of hoElem1
+//                    End
+//                    
+//                    Send Destroy of hoDoc
+//                    Send Destroy of hoXML
+//                Loop
+//                    
+            
+            Procedure ProcessFile Handle hoXml String sFile
+                Integer  iOK i iMax
+                String   sHome sAuthor sTrackName
+                Handle   hoDoc hoElem1 hoElem2 hoElem3 hoElem4
+                
+                Get DocumentElement of hoXml to hoDoc
+                If not hoDoc ;
+                    Procedure_Return
+                
+                Move "" to sAuthor
+                
+                Get FirstChild of hoDoc to hoElem1
+                
+                // ToDo: Need to destroy any hoXML elements when breaking out!!!
+                While hoElem1
+                    
+                    If (sAuthor = "") Begin
+                    
+                        If (psNodeName(hoElem1) = "metadata") Begin
+                            Get FirstChild of hoElem1 to hoElem2
+                            
+                            While hoElem2
+                                    
+                                If (psNodeName(hoElem2) = "author") Begin
+                                    Get FirstChild of hoElem2 to hoElem3
+                                    
+                                    While hoElem3
+                                        
+                                        If (psNodeName(hoElem3) = "name") ;
+                                            Move (psText(hoElem3)) to sAuthor
+                                        
+                                        If (sAuthor <> "") ;
+                                            Send Destroy of hoElem3
+                                        If (sAuthor <> "") ;
+                                            Break
+                                            
+                                        If (psNodeName(hoElem3) = "link") Begin
+                                            Get FirstChild of hoElem3 to hoElem4
+                                            
+                                            While hoElem4
+                                                If (psNodeName(hoElem4) = "text") ;
+                                                    Move (psText(hoElem4)) to sAuthor
+                                                
+                                                If (sAuthor <> "") ;
+                                                    Send Destroy of hoElem4
+                                                If (sAuthor <> "") ;
+                                                    Break
+                                                    
+                                                Get NextNode of hoElem4 to hoElem4
+                                            Loop
+                                            
+                                        End
+                                        
+                                        If (sAuthor <> "") ;
+                                            Send Destroy of hoElem3
+                                        If (sAuthor <> "") ;
+                                            Break
+                                        
+                                        Get NextNode of hoElem3 to hoElem3
+                                    Loop
+                                    
+                                End
+                                
+                                If (sAuthor <> "") ;
+                                    Send Destroy of hoElem2
+                                If (sAuthor <> "") ;
+                                    Break 
+                                
+                                Get NextNode of hoElem2 to hoElem2
+                            Loop
+                            
+                        End
+                    
+                        If (psNodeName(hoElem1) = "wpt") Begin
+                            Get FirstChild of hoElem1 to hoElem2
+                            
+                            While hoElem2
+                                
+                                If (psNodeName(hoElem2) = "sym") Begin
+                                    Move (psText(hoElem2)) to sAuthor
+                                End
+                                
+                                If (sAuthor <> "") ;
+                                    Send Destroy of hoElem2
+                                If (sAuthor <> "") ;
+                                    Break 
+                                
+                                Get NextNode of hoElem2 to hoElem2
+                            Loop
+                            
+                        End
+                        
+                    End
+                    
+                    // Fallback option
+                    If (sAuthor = "") ;
+                        Get AttributeValue of hoDoc "creator" to sAuthor
+
+                    If (psNodeName(hoElem1) = "trk") Begin
+                        Get FirstChild of hoElem1 to hoElem2
+                        
+                        While hoElem2
+                            
+                            // Add the track If it has a name:
+                            If (psNodeName(hoElem2) = "name") Begin
+                                Send AddComboItem ;
+                                    sFile ;
+                                    (psText(hoElem2) * If((sAuthor = ""), "", "(" + sAuthor + ")") * - "-" * sFile)
+                                Send Destroy of hoElem2
+                                Send Destroy of hoElem1
+                                Send Destroy of hoDoc
+                                Procedure_Return
+                            End
+                            
+                            Get NextNode of hoElem2 to hoElem2
+                        Loop
+                        
+                        // Add the track If it has no name:
+                        Send AddComboItem ;
+                            sFile ;
+                            (sFile * If((sAuthor = ""), "", "(" + sAuthor + ")") * - "-" * sFile)
+                        Send Destroy of hoElem1
+                        Send Destroy of hoDoc
+                        Procedure_Return
+                    End                        
+                    
+                    Get NextNode of hoElem1 to hoElem1
+                Loop
+                
+                Send Destroy of hoDoc
+            End_Procedure
+            
+            Procedure OnFill
+                Integer  iChn i iMax iOK
+                String   sHome                
+                String[] asPaths
+                Handle   hoXml
+                
+                // Find all .gpx files in Paths dir:
+                Get Seq_New_Channel to iChn
+                Move (psHome(phoWorkspace(ghoApplication))) to sHome
+                
+                Direct_Input channel iChn ("dir:" * sHome + "Paths\*.gpx")
+                
+                While not (SeqEof)
+                    Readln asPaths[i]
+                    Increment i
+                Loop
+                
+                Close_Input channel iChn
+                Send Seq_Release_Channel iChn
+                
+                // For each file, try to find the name of the path and the author
+                Move (SizeOfArray(asPaths) - 1) to iMax
+                
+                For i from 0 to iMax
+                    Get Create (RefClass(cXMLDOMDocument)) to hoXml
+                    Set psDocumentName of hoXml to (sHome + "Paths\" + asPaths[i])
+                    Get LoadXMLDocument of hoXml to iOK
+                    If iOK ;
+                        Send ProcessFile hoXml asPaths[i]
+                    Send Destroy of hoXml
+                Loop
+                
+            End_Procedure
+
+        End_Object
+
+        Object oLoadTrace is a cWebButton
+            Set piColumnSpan to 1
+            Set piColumnIndex to 5
+            Set psCaption to "Map trace"
+        
+            Procedure OnClick
+                String  sFile sBase sContrib sText
+                Handle  hoXML hoDoc hoTrack hoSeg hoPoint
+                Boolean bOK bMark
+                Integer i iPos
+                stPolyline tLine
+                stPolylines tEmpty
+                
+                WebSet ptPolylines of oMap to tEmpty
+                
+                Move (psHome(phoWorkspace(ghoApplication)) + "Paths\") to sBase
+                
+                WebGet psValue of oTraces to sFile
+                
+                Move (sBase + sFile) to sFile
+                Move 0 to i
+                
+                Get Create (RefClass(cXMLDOMDocument)) to hoXML
+                Set psDocumentName of hoXML to sFile
+                Get LoadXMLDocument of hoXML to bOK
+                
+                If not bOK Begin
+                    Send ShowInfoBox "Could not load path XML" "Load error"
+                    Procedure_Return
+                End
+                
+                Get DocumentElement of hoXML to hoDoc
+                
+                If not hoDoc ;
+                    Procedure_Return
+                    
+                Get FirstChild of hoDoc to hoTrack
+                
+                If not hoTrack ;
+                    Procedure_Return
+                    
+                While hoTrack
+                    If (psNodeName(hoTrack) = "trk") ;
+                        Break
+                    Get NextSibling of hoTrack to hoTrack
+                Loop
+                
+                Get FirstChild of hoTrack to hoSeg
+                
+                If not hoSeg ;
+                    Procedure_Return
+                    
+                While hoSeg
+                    
+                    If (psNodeName(hoSeg) = "name") ;
+                        Move (psText(hoSeg)) to sText
+                    
+                    If (psNodeName(hoSeg) = "trkseg") Begin
+                        Get FirstChild of hoSeg to hoPoint
+                        
+                        While hoPoint
+                            
+                            If (psNodeName(hoPoint) = "trkpt") Begin
+                                Get AttributeValue of hoPoint "lat" to tLine.aPoints[i][0]
+                                Get AttributeValue of hoPoint "lon" to tLine.aPoints[i][1]
+                                Increment i
+                            End
+                            
+                            Get NextSibling of hoPoint to hoPoint
+                        Loop
+
+                    End
+
+                    Get NextSibling of hoSeg to hoSeg
+                Loop
+                
+                Send Destroy of hoTrack
+                Send Destroy of hoDoc
+                Send Destroy of hoXml
+                
+                If (sText = "") ;
+                    Move sFile to sText
+                
+                Move (Config("defaults.polyline.lineColor"))    to tLine.sLineColor
+                Move (Config("defaults.polyline.lineWeight"))   to tLine.iLineWeight
+                Move (Config("defaults.polyline.lineOpacity"))  to tLine.nOpacity
+                Move True                                       to tLine.bFitMap
+                Move sText                                      to tLine.sText
+                Move True                                       to tLine.bStroke
+
+                Send GeoContributor of oMap sContrib "" (If((sContrib <> ""), "Path", "")) False
+                Send DrawMap of oMap tLine.aPoints[0][0] tLine.aPoints[0][1] 12 22
+                
+                If (GetChecked(oMarkStart(Self))) ;
+                    Send DrawMarker of oMap tLine.aPoints[0][0] tLine.aPoints[0][1] (Trim(sText * "Start")) "" False
+    
+                Send DrawPolyLine of oMap tLine
+            End_Procedure
+            
+        End_Object
+
+        Object oMarkStart is a cWebCheckbox
+            Set piColumnSpan to 2
+            Set piColumnIndex to 6
+            Set psCaption to "Show marker at start"
+        End_Object
+
+        Object oResolution is a cWebCombo
+            Set piColumnIndex to 8
+            Set piColumnSpan to 2
+            Set psLabel to "Res:"
+            Set peLabelAlign to alignRight
+            Set piLabelOffset to 60
+            Set psValue to "256"
+            
+            Procedure OnFill
+                Send AddComboItem "256"  "256"
+                Send AddComboItem "512"  "512"
+                Send AddComboItem "1024" "1024"
+            End_Procedure
+            
+            Set pbServerOnChange to True
+            Procedure OnChange String sNewValue String sOldValue
+                WebSet psTileSize     of oMap to sNewValue
+                Send ChangeResolution of oMap    sNewValue
+            End_Procedure
+
+        End_Object
+    
+        Object oMapLayer is a cWebCombo
+            Set piColumnIndex to 10
+            Set piColumnSpan to 2
+            Set psLabel to "View:"
+            Set peLabelAlign to alignRight
+            Set piLabelOffset to 60
+            Set psValue to "Map view"
+            
+            Procedure OnFill
+                    Send AddComboItem "mapbox/streets-v11"              "Streets view"
+                    Send AddComboItem "mapbox/outdoors-v11"             "Outdoors view"
+                    Send AddComboItem "mapbox/light-v10"                "Light view"
+                    Send AddComboItem "mapbox/dark-v10"                 "Dark view"
+                    Send AddComboItem "mapbox/satellite-v9"             "Satellite view"
+                    Send AddComboItem "mapbox/satellite-streets-v11"    "Satellite Streets view"
+                    Send AddComboItem "mapbox/navigation-day-v1"        "Navigation view (day)"
+                    Send AddComboItem "mapbox/navigation-night-v1"      "Navigation view (night)"
+            End_Procedure
+            
+            Set pbServerOnChange to True
+            Procedure OnChange String sNewValue String sOldValue
+                WebSet psLayerID of oMap to sNewValue
+                Send ChangeLayer of oMap    sNewValue
+            End_Procedure
+            
+        End_Object
+
+        Object oWebSpacer1 is a cWebSpacer
+        End_Object
+        
+        Object oMap is a cLeafletMappingControl
+        End_Object
+
+    End_Object 
+
+End_Object

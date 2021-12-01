@@ -1,0 +1,10 @@
+[C:\Projects\LeafletLibrary\GeoConnectors\cWhatThreeWordsConnector.pkg]
+Source86=Set panBoundingBox to anBox
+ConditionEnabled86=0
+Condition86= 
+86=1
+[C:\Projects\LeafletTest\AppSrc\PathTrace.wo]
+Source156=Move (psText(hoElem2)) to sAuthor
+ConditionEnabled156=0
+Condition156= 
+156=1

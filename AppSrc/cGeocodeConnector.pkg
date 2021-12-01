@@ -1,0 +1,135 @@
+﻿Use UI
+Use cHttpTransfer.pkg
+Use cJsonObject.pkg
+Use cJsonPath.pkg
+Use cGeoHttpTransfer.pkg
+Use cGeocodeHost.pkg
+
+Class cGeocodeConnector is a cObject
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+
+        Property String     psName
+        Property String     psID
+        Property String     psHost
+        Property String     psPath
+        Property String     psKey
+        Property String     psError
+        Property Number     pnLat
+        Property Number     pnLng
+        Property String     psMarker
+        Property Integer    piZoom          12
+        Property Integer    piMaxZoom       22
+        Property String     psDisplayName
+        Property String     psWebSite
+        Property Boolean    pbFitMap True
+        
+        Property String     psQuery
+        
+        Object oHttp is a cGeoHttpTransfer
+            Set piRemotePort    to rpHttpSSL
+            Set peTransferFlags to ifSecure
+        End_Object
+        
+        Object oJPath is a cJsonPath
+        End_Object
+        
+    End_Procedure
+    
+    Function CallPath String sPath String sKey String sQuery Returns String
+        Function_Return (sPath + "?" + sKey + "&" + sQuery)
+    End_Function
+    
+    Function DoGeoQuery String sQuery Returns Handle
+        Boolean bOK
+        Integer iStat
+        Handle  hoResp
+        String  sCall
+        
+        Set psQuery to sQuery
+        
+        Send Reset of oHttp
+        Set pnLat to 100 // Invalid latitude
+        Set psError to ""
+        
+        Move (CallPath(Self, psPath(Self), psKey(Self), sQuery)) to sCall
+        
+        Get HTTPGetRequest of oHttp sCall to bOK
+        
+        If bOK Begin
+            Get ResponseStatusCode of oHttp to iStat
+            
+            If ((iStat >=200) and (iStat < 300)) Begin
+                Get Create (RefClass(cJsonObject)) to hoResp
+                Set peWhiteSpace of hoResp to jpWhitespace_Pretty
+                Set pbEscapeForwardSlash of hoResp to False
+                Get ParseUtf8 of hoResp (pucaData(oHttp(Self))) to bOK
+                
+                If bOK Begin
+                    Send ExtractData hoResp
+                    Function_Return hoResp
+                End
+                Else Begin
+                    Set psError to ("JSON Error -" * psParseError(hoResp))
+                    Send Destroy of hoResp
+                End
+                
+            End
+            Else ;
+                Set psError to ("HTTP Status" * String(iStat))
+        End
+        Else ;
+            Set psError to "HTTP request failed"
+        
+        Function_Return 0
+    End_Function
+    
+    Function FreeQuery String sQuery Returns Handle
+        Set psError to "Not implemented"
+        Function_Return 0
+    End_Function
+    
+    Function StructuredQuery String[] asParams Returns Handle
+        Set psError to "Not implemented"
+        Function_Return 0
+    End_Function
+    
+    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+        Set psError to "Not implemented"
+        Function_Return 0
+    End_Function
+    
+    Procedure ExtractData Handle hoJson
+    End_Procedure
+    
+    Procedure DrawMap Handle hoJson Handle hoMap
+        Send GeoContributor of hoMap (psName(Self)) (psWebSite(Self)) "GeoLocation" True
+        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))        
+    End_Procedure
+    
+    Procedure PlaceMarker Handle hoMap String sMarker
+        Number nLat nLng
+        
+        If not hoMap ;
+            Procedure_Return
+            
+        Get pnLat to nLat
+        Get pnLng to nLng
+        
+        If (nLat = 100) ;  // Invalid latitude
+            Procedure_Return
+        
+        Send DrawMarker of hoMap nLat nLng (psDisplayName(Self)) sMarker False
+    End_Procedure
+    
+    Procedure End_Construct_Object
+        Forward Send End_Construct_Object
+        
+        Set psRemoteHost of oHttp to (psHost(Self))
+
+        If (ObjectClass(Parent(Self)) = RefClass(cGeocodeHost)) ;
+            Delegate Send RegisterGeocodeConnector Self (psID(Self)) (psName(Self))
+    End_Procedure
+
+End_Class

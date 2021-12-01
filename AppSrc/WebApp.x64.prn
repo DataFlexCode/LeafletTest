@@ -1,0 +1,4145 @@
+Compiling Program: C:\Projects\LeafletTest\AppSrc\WebApp.src
+Memory Available: 11782361088
+1>Use AllWebAppClasses.pkg
+Using pre-compiled package ALLWEBAPPCLASSES.PKG
+Including file: AllWebAppClasses.x64.pkd    (C:\Program Files\DataFlex 20.1\Pkg\AllWebAppClasses.x64.pkd)
+34438>Use cConnection.pkg
+34438>Use cWebMenuItemLoadView.pkg
+34438>Use JsonConfig.pkg
+Including file: JsonConfig.pkg    (C:\Projects\LeafletTest\AppSrc\JsonConfig.pkg)
+34438>>>//==============================================================================
+34438>>>// JsonConfig.pkg
+34438>>>//
+34438>>>// A singleton object which can read in a JSON configuration file, store it as a
+34438>>>// DataFlex Json object, then supply values from it as required.
+34438>>>// 
+34438>>>// It has a global handle: ghoJsonConfig and then a terse global method for 
+34438>>>// getting back the settings: (Config({setting-path})).
+34438>>>//
+34438>>>// Author:  Mike Peat
+34438>>>// Date:    04/02/2020
+34438>>>//
+34438>>>// Usage:
+34438>>>// 
+34438>>>//   Load the config file:
+34438>>>//     Get LoadConfig of ghoJsonConfig {optional-filename} {optional-path} to bOK
+34438>>>//
+34438>>>//   If not supplied the default filename is "config.json" and the path is the
+34438>>>//   programs directory of your current workspace.  If you pass an empty
+34438>>>//   filename then "config.json:" will be used.  There is no requirement for
+34438>>>//   filename extension to be ".json" (although that _would_ seem sensible).
+34438>>>//
+34438>>>//   Reading a setting:
+34438>>>//     Move (Config("foo.bar.baz[3].bob")) to nVar  // nVar is now 42
+34438>>>//   Or:
+34438>>>//     Get Config "foo.bar.baz[3].bob"     to sVar  // sVar is now "42"
+34438>>>//
+34438>>>//   Which would return the setting in the file from:
+34438>>>//      {
+34438>>>//          "foo" : {
+34438>>>//              "bar" : {
+34438>>>//                  "baz" : [
+34438>>>//                      66,
+34438>>>//                      {
+34438>>>//                          "jim" : "jack"
+34438>>>//                      },
+34438>>>//                      false,
+34438>>>//                      {
+34438>>>//                          "bob" : 42     <--- This one!
+34438>>>//                      },
+34438>>>//                      {
+34438>>>//                          "kim" : "possible"
+34438>>>//                      }
+34438>>>//                  ]
+34438>>>//              }
+34438>>>//          }
+34438>>>//      }
+34438>>>//
+34438>>>// (If "Config" conflicts with anything in your environment you can simply
+34438>>>//  change the name of the global function at the bottom of the package.)
+34438>>>//
+34438>>>// It should handle multi-dimentional arrays (i.e. foo[3][22][6]) and JSON of
+34438>>>// arbitrary depth and length.
+34438>>>//
+34438>>>// Attempts to get settings which are not in the JSON will return empty strings.
+34438>>>//
+34438>>>// NOTE: JSON is case-sensitive, so your search-strings must exactly match the
+34438>>>//       object names ("foo" is *not* "Foo") in the JSON file.
+34438>>>//
+34438>>>//==============================================================================
+34438>>>    Use UI
+34438>>>Use seq_chnl.pkg
+34438>>>Use cJsonObject.pkg
+34438>>>
+34438>>>Global_Variable Handle ghoJsonConfig
+34438>>>Register_Function ReadSetting String sDefs Handle hoDefs Returns String
+34438>>>
+34438>>>Define C_jsonConfigDefaultFile for "config.json"
+34438>>>
+34438>>>Object oJsonConfig is a cObject
+34440>>>    Property Handle phoConfig
+34442>>>    
+34442>>>    Move Self to ghoJsonConfig
+34443>>>    
+34443>>>    Procedure UserMessage String sMsg String sTitle
+34446>>>            Send ShowInfoBox sMsg sTitle
+34447>>>    End_Procedure
+34448>>>    
+34448>>>    Function LoadConfig Returns Boolean
+34451>>>        String  sFile sDir sPath sErr
+34451>>>        Handle  hoConfig
+34451>>>        Integer iArg iChn
+34451>>>        UChar[] ucaConfig
+34452>>>        Boolean bOK bExists
+34452>>>        
+34452>>>        // If phoConfig exists, destroy it
+34452>>>        Get phoConfig to hoConfig
+34453>>>        
+34453>>>        If hoConfig Begin
+34455>>>            Send Destroy of hoConfig
+34456>>>            Set phoConfig to 0
+34457>>>        End
+34457>>>>
+34457>>>        
+34457>>>        // The default filename & path
+34457>>>        Move C_jsonConfigDefaultFile to sFile
+34458>>>        Move (psProgramPath(phoWorkspace(ghoApplication))) to sDir
+34459>>>
+34459>>>        // Deal with optional filename and path:
+34459>>>        If (num_arguments > 0) Begin
+34461>>>            Move 1                              to iArg
+34462>>>            Move iArg&                          to sFile
+34463>>>            If (sFile = "") ;  // use default                Move C_jsonConfigDefaultFile    to sFile
+34466>>>            
+34466>>>            If (num_arguments > 1) Begin
+34468>>>                Move 2                          to iArg
+34469>>>                Move iArg&                      to sDir
+34470>>>            End
+34470>>>>
+34470>>>
+34470>>>        End
+34470>>>>
+34470>>>        
+34470>>>        // Read the config file
+34470>>>        Move (sDir + SysConf(SYSCONF_DIR_SEPARATOR) + sFile) to sPath
+34471>>>        
+34471>>>        File_Exist sPath bExists
+34472>>>        
+34472>>>        If not bExists Begin
+34474>>>            Send UserMessage ('Config file "' + sPath + '" does not exist') 'File Error'
+34475>>>            Function_Return False
+34476>>>        End
+34476>>>>
+34476>>>        
+34476>>>        Get Seq_New_Channel   to iChn
+34477>>>        Direct_Input     channel iChn sPath
+34479>>>        Read_Block       channel iChn ucaConfig -1
+34481>>>        Close_Input      channel iChn
+34483>>>        Send Seq_Release_Channel iChn
+34484>>>        
+34484>>>        If (SizeOfArray(ucaConfig) < 7) Begin  // About the minimum: {"x":y}
+34486>>>            Send UserMessage ('Configuration file "' + sPath * '" was missing or did not contain data') 'Config Error'
+34487>>>            Function_Return False
+34488>>>        End
+34488>>>>
+34488>>>        
+34488>>>        // Turn that into JSON
+34488>>>        Get Create (RefClass(cJsonObject))  to hoConfig
+34489>>>        Get ParseUtf8 of hoConfig ucaConfig to bOK
+34490>>>        
+34490>>>        If not bOK Begin
+34492>>>            Get psParseError of hoConfig to sErr
+34493>>>            Send Destroy of hoConfig
+34494>>>            Send UserMessage ('Configuration file "' + sPath + '" was not valid JSON -' * sErr) 'Config Error'
+34495>>>            Function_Return False
+34496>>>        End
+34496>>>>
+34496>>>        
+34496>>>        Set phoConfig to hoConfig
+34497>>>        Function_Return True
+34498>>>    End_Function
+34499>>>    
+34499>>>    Function ReadArray String sDefs Handle hoDefs Returns String
+34502>>>        Integer iLSBPos iRSBPos iIndex
+34502>>>        Handle  hoMemb
+34502>>>        String  sVal
+34502>>>        
+34502>>>        If ((not(hoDefs) or ;            (sDefs = ""))) ;            Function_Return ""
+34505>>>        
+34505>>>        Move (Pos("[", sDefs)) to iLSBPos
+34506>>>        Move (Pos("]", sDefs)) to iRSBPos
+34507>>>        
+34507>>>        If (not(iLSBPos) or ;            not(iRSBPos) or ;            (iLSBPos > iRSBPos) or ;            (iLSBPos <> 1)) ;            Function_Return ""
+34510>>>        
+34510>>>        Move (Mid(sDefs, (iRSBPos - iLSBPos - 1), (iLSBPos + 1))) to iIndex
+34511>>>        
+34511>>>        If (MemberCount(hoDefs) <= iIndex) ;            Function_Return ""
+34514>>>        
+34514>>>        Get MemberByIndex of hoDefs iIndex to hoMemb
+34515>>>
+34515>>>        If (Length(Trim(sDefs)) = iRSBPos) Begin // It ends here
+34517>>>            Get JsonValue of hoMemb to sVal
+34518>>>            Send Destroy of hoMemb
+34519>>>            Function_Return sVal
+34520>>>        End
+34520>>>>
+34520>>>
+34520>>>        Move (Right(sDefs, (Length(sDefs) - iRSBPos))) to sDefs
+34521>>>        If (Left(sDefs, 1) = ".") ;            Move (Replace(".", sDefs, "")) to sDefs
+34524>>>        Get ReadSetting sDefs hoMemb to sVal
+34525>>>        Send Destroy of hoMemb
+34526>>>        Function_Return sVal
+34527>>>    End_Function
+34528>>>    
+34528>>>    Function ReadSetting String sDefs Handle hoDefs Returns String
+34531>>>        Integer iLSBPos iDotPos iPos
+34531>>>        String  sMemb sVal
+34531>>>        Handle  hoMemb
+34531>>>
+34531>>>        If ((not(hoDefs) or ;            (sDefs = ""))) ;            Function_Return ""
+34534>>>            
+34534>>>        If (Left(sDefs, 1) = "[") ;            Function_Return (ReadArray(Self, sDefs, hoDefs))
+34537>>>        
+34537>>>        Move (Pos(".", sDefs))      to iDotPos
+34538>>>        Move (Pos("[", sDefs))      to iLSBPos
+34539>>>        
+34539>>>        If (iLSBPos and iDotPos) ;            Move (iDotPos min iLSBPos)  to iPos
+34542>>>        Else If (iDotPos) ;            Move iDotPos                to iPos
+34546>>>        Else ;            Move iLSBPos                to iPos
+34548>>>        
+34548>>>        If not iPos Begin  // We are there!
+34550>>>            
+34550>>>            If (HasMember(hoDefs, sDefs)) ;                Function_Return (MemberValue(hoDefs, sDefs))
+34553>>>            Else ;                Function_Return ""
+34555>>>        
+34555>>>        End
+34555>>>>
+34555>>>        
+34555>>>        Move (Left(sDefs, (iPos - 1)))    to sMemb
+34556>>>        
+34556>>>        If (HasMember(hoDefs, sMemb)) Begin
+34558>>>            Get Member of hoDefs sMemb to hoMemb
+34559>>>            Move (Right(sDefs, (Length(sDefs) - iPos + 1))) to sDefs
+34560>>>            If (Left(sDefs, 1) = ".") ;                Move (Replace(".", sDefs, "")) to sDefs
+34563>>>            Get ReadSetting sDefs hoMemb to sVal
+34564>>>            Send Destroy of hoMemb
+34565>>>        End
+34565>>>>
+34565>>>        
+34565>>>        Function_Return sVal
+34566>>>    End_Function
+34567>>>    
+34567>>>    Function Setting String sDefs Returns String
+34570>>>        Handle hoConfig
+34570>>>        
+34570>>>        Get phoConfig to hoConfig
+34571>>>        
+34571>>>        If not hoConfig ;            Function_Return ""
+34574>>>        
+34574>>>        Function_Return (ReadSetting(Self, sDefs, hoConfig))
+34575>>>    End_Function
+34576>>>    
+34576>>>End_Object
+34577>>>
+34577>>>// I wanted a terse global function name here, but if "Config" conflicts with
+34577>>>// anything in your environment you can simply change it to whatever you want.
+34577>>>Function Config Global String sDefs Returns String
+34579>>>    Function_Return (Setting(ghoJsonConfig, sDefs))
+34580>>>End_Function
+34581>
+34581>Object oApplication is a cApplication
+34583>    Object oConnection is a cConnection
+34585>        Use LoginEncryption.pkg
+Including file: LoginEncryption.pkg    (C:\Program Files\DataFlex 20.1\Pkg\LoginEncryption.pkg)
+34585>>>Use cLoginEncryption.pkg
+Including file: cLoginEncryption.pkg    (C:\Program Files\DataFlex 20.1\Pkg\cLoginEncryption.pkg)
+34585>>>>>Use cCryptographerEx.pkg
+34585>>>>>
+34585>>>>>Class cLoginEncryption is a cObject
+34586>>>>>    
+34586>>>>>    Procedure Construct_Object
+34588>>>>>        Forward Send Construct_Object
+34590>>>>>        // this must be set to a multi (40ish) character random key
+34590>>>>>        Property String psEncryptPassword ""
+34591>>>>>        
+34591>>>>>        Object oDataCrypter is a cCryptographerEx
+34593>>>>>            Set piHash to CALG_SHA_256
+34594>>>>>            Set piCipher to CALG_AES_256
+34595>>>>>            Set psProvider to "" //  Not providing a specific provider gives the default provider for the provider type
+34596>>>>>            Set piProvider to PROV_RSA_AES
+34597>>>>>        End_Object
+34598>>>>>    End_Procedure
+34599>>>>>    
+34599>>>>>    // This can be augmented to return a password encryption key using any
+34599>>>>>    // hidden mechanism desired.
+34599>>>>>    Function GetEncryptionPassword Returns String
+34601>>>>>        String sPassword
+34601>>>>>        Get psEncryptPassword to sPassword
+34602>>>>>        Function_Return sPassword
+34603>>>>>    End_Function
+34604>>>>>    
+34604>>>>>    // Encrypts a string into an unreadable hash that can later be decrypted using DecryptKey.
+34604>>>>>    //
+34604>>>>>    // Params:
+34604>>>>>    //   sPlainText     String to encrypt.
+34604>>>>>    // Returns:
+34604>>>>>    //   Base64 encoded hash.
+34604>>>>>    Function EncryptPassword String sPlainText Returns String
+34606>>>>>        String sEncryptPassword sBase64
+34606>>>>>        UChar[] ucBinary
+34607>>>>>        Pointer pBase64
+34607>>>>>        Integer iVoid
+34607>>>>>        
+34607>>>>>        //  Encrypt Key
+34607>>>>>        Get GetEncryptionPassword to sEncryptPassword
+34608>>>>>        If (sEncryptPassword = "") Begin
+34610>>>>>            Error DFERR_PROGRAM "No encryption password set"
+34611>>>>>>
+34611>>>>>        End
+34611>>>>>>
+34611>>>>>        
+34611>>>>>        Get Encrypt of oDataCrypter (StringToUCharArray(sEncryptPassword)) (StringToUCharArray(sPlainText)) to ucBinary
+34612>>>>>        
+34612>>>>>        If (SizeOfArray(ucBinary) = 0) Begin
+34614>>>>>            Error DFERR_PROGRAM "Unable to encrypt database login password"
+34615>>>>>>
+34615>>>>>            Function_Return ""
+34616>>>>>        End
+34616>>>>>>
+34616>>>>>        
+34616>>>>>        //  Encode binary hash to Base64
+34616>>>>>        Move (Base64Encode(AddressOf(ucBinary), SizeOfArray(ucBinary))) to pBase64
+34617>>>>>        Move (PointerToString(pBase64)) to sBase64
+34618>>>>>        Move (Free(pBase64)) to iVoid
+34619>>>>>        
+34619>>>>>        Function_Return sBase64
+34620>>>>>    End_Function
+34621>>>>>    
+34621>>>>>    
+34621>>>>>    // Decrypts the unreadable hash generated by EncryptKey into a readable string.
+34621>>>>>    //
+34621>>>>>    // Params:
+34621>>>>>    //   sBase64EncryptedPassword       Base64 Encrypted password
+34621>>>>>    // Returns:
+34621>>>>>    //   Readable plain text password
+34621>>>>>    Function DecryptPassword String sBase64EncryptedPassword Returns String
+34623>>>>>        String sEncryptPassword
+34623>>>>>        UChar[] ucBinary ucPlain
+34625>>>>>        Boolean bIsHex
+34625>>>>>        Integer iLen iVoid
+34625>>>>>        Pointer pBinary
+34625>>>>>        
+34625>>>>>        If (sBase64EncryptedPassword <> "") Begin
+34627>>>>>            //  Decode from Base64
+34627>>>>>            Move (Base64Decode(AddressOf(sBase64EncryptedPassword), &iLen)) to pBinary
+34628>>>>>            
+34628>>>>>            Move (ResizeArray(ucBinary, iLen, 0)) to ucBinary
+34629>>>>>            Move (MemCopy(AddressOf(ucBinary), pBinary, iLen)) to iVoid
+34630>>>>>                        
+34630>>>>>            Move (Free(pBinary)) to iVoid
+34631>>>>>            
+34631>>>>>            //  Encrypted binary hash to string
+34631>>>>>            Get GetEncryptionPassword to sEncryptPassword
+34632>>>>>            Get Decrypt of oDataCrypter (StringToUCharArray(sEncryptPassword)) ucBinary to ucPlain
+34633>>>>>        End
+34633>>>>>>
+34633>>>>>        
+34633>>>>>        Function_Return (UCharArrayToString(ucPlain))
+34634>>>>>    End_Function
+34635>>>>>End_Class
+34636>>>
+34636>>>Object oLoginEncryption is a cLoginEncryption
+34638>>>
+34638>>>    // this must be created in your appsrc directory and must contain an encryption
+34638>>>    // key that is set to psEncryptPassword. It will look something like this
+34638>>>    //
+34638>>>    // Set psEncryptPassword to "JchUAo7W@r.b{<Yk~OONi0nq=sMi[*Rn[A-`Vo)q"
+34638>>>    //  
+Including file: LoginEncryptionKey.inc    (C:\Projects\LeafletTest\AppSrc\LoginEncryptionKey.inc)
+34638>>>>// Studio generated login encryption key
+34638>>>>Set psEncryptPassword to "(zeWgswe@|Fpp$QO|<~VYv$44:([sNwe{MtV()?x"
+34639>>>>
+34639>>>    
+34639>>>    // use this to register this object to your cConnection Object. This object
+34639>>>    // must be created after the cConnection object
+34639>>>    Move Self to ghoLoginEncryption
+34640>>>End_Object
+34641>    End_Object
+34642>End_Object
+34643>
+34643>Object oWebApp is a cWebApp
+34645>    Set psTheme to "DF_Material"
+34646>    Set peApplicationStateMode to asmHistoryOnly
+34647>    Set peLoginMode to lmLoginNone
+34648>    Set psEncryptPassword to "Q7>}w~hmwPZ9#6g^wTyq[zAo>(k.Pvm#ndfiDO34"
+34649>    
+34649>    Get LoadConfig of ghoJsonConfig to WindowIndex  // Loads setting from Programs/Config.json
+34650>                                                    // (the default filename)        
+34650>
+34650>    Object oCommandbar is a cWebCommandBar
+34652>        Object oMenuBar is a cWebMenuBar
+34654>            Object oFileMenu is a cWebMenuItem
+34656>                Set psCaption to C_$File
+34657>                
+34657>                Object oClearMenuItem is a cWebMenuClear
+34659>                End_Object
+34660>                             
+34660>                Object oClearAllMenuItem is a cWebMenuClearAll
+34662>                End_Object  
+34663>                
+34663>                Object oPromptMenuItem is a cWebMenuPrompt
+34665>                    Set pbBeginGroup to True
+34666>                End_Object  
+34667>                               
+34667>                Object oFindMenuItem is a cWebMenuFind
+34669>                End_Object  
+34670>
+34670>                Object oNextMenuItem is a cWebMenuFindNext
+34672>                End_Object  
+34673>
+34673>                Object oPreviousMenuItem is a cWebMenuFindPrevious
+34675>                End_Object  
+34676>                
+34676>                Object oLastMenuItem is a cWebMenuFindLast
+34678>                End_Object                
+34679>                                
+34679>                Object oFirstMenuItem is a cWebMenuFindFirst
+34681>                End_Object  
+34682>                
+34682>                Object oSaveMenuItem is a cWebMenuSave
+34684>                    Set pbBeginGroup to True
+34685>                End_Object  
+34686>                
+34686>                Object oDeleteMenuItem is a cWebMenuDelete
+34688>                End_Object  
+34689>                
+34689>                Object oLoginMenuItem is a cWebMenuItem
+34691>                    Set psCaption to C_$LogIn
+34692>                    Set pbBeginGroup to True
+34693>                    Set psCSSClass to "WebLoginMenuItem"
+34694>
+34694>                    Procedure OnClick
+34697>                        Send RequestLogin to ghoWebSessionManager
+34698>                    End_Procedure
+34699>                    
+34699>                    Procedure OnLoad
+34702>                        Integer eLoginMode
+34702>                        Handle hoLogin
+34702>                        Get GetLoginView to hoLogin
+34703>                        Get peLoginMode to eLoginMode
+34704>                        WebSet pbRender to  (hoLogin and eLoginMode<>lmLoginNone)
+34705>                    End_Procedure  // OnLoad
+34706>                    
+34706>                End_Object  
+34707>
+34707>                Object oLogoutMenuItem is a cWebMenuItem
+34709>                    Set psCaption to C_$LogOut
+34710>                    Set psCSSClass to "WebLogoutMenuItem"
+34711>
+34711>                    Procedure OnClick
+34714>                        Send RequestLogOut of ghoWebSessionManager
+34715>                    End_Procedure
+34716>
+34716>                    Procedure OnLoad
+34719>                        Integer eLoginMode
+34719>                        Handle hoLogin
+34719>                        Get GetLoginView to hoLogin
+34720>                        Get peLoginMode to eLoginMode
+34721>                        WebSet pbRender to  (hoLogin and eLoginMode<>lmLoginNone)
+34722>                    End_Procedure
+34723>                End_Object  
+34724>            End_Object  
+34725>    
+34725>            Object oViewMenu is a cWebMenuItem
+34727>                Set psCaption to C_$View
+34728>
+34728>                Object oSimpleMapTest1 is a cWebMenuItemLoadView
+34730>                    Set psCaption to "Simple Map Test"
+34731>                    Set psLoadViewOnClick to "oSimpleMapTest"
+34732>                End_Object
+34733>
+34733>                Object oTestGeoMappingItem1 is a cWebMenuItemLoadView
+34735>                    Set psCaption to "GeoMapping Test"
+34736>                    Set psLoadViewOnClick to "oTestGeoMap"
+34737>                End_Object
+34738>
+34738>                Object oPathTraceExampleItem1 is a cWebMenuItemLoadView
+34740>                    Set psCaption to "Path Trace Example"
+34741>                    Set psLoadViewOnClick to "oPathTrace"
+34742>                End_Object
+34743>
+34743>                Object oCountriesItem1 is a cWebMenuItemLoadView
+34745>                    Set psCaption to "Countries"
+34746>                    Set psLoadViewOnClick to "oCountries"
+34747>                End_Object
+34748>            End_Object  
+34749>        End_Object  
+34750>        
+34750>    End_Object
+34751>
+34751>    Use SessionManager.wo
+Including file: SessionManager.wo    (C:\Projects\LeafletTest\AppSrc\SessionManager.wo)
+34751>>>Use cWebSessionManagerStandard.pkg
+Including file: cWebSessionManagerStandard.pkg    (C:\Program Files\DataFlex 20.1\Pkg\cWebSessionManagerStandard.pkg)
+34751>>>>>Use cWebSessionManager.pkg
+34751>>>>>Use cWebAppSessionDataDictionary.dd
+Including file: cWebAppSessionDataDictionary.dd    (C:\Program Files\DataFlex 20.1\Pkg\cWebAppSessionDataDictionary.dd)
+34751>>>>>>>Use DataDict.pkg
+34751>>>>>>>
+34751>>>>>>>Open WebAppSession
+Including file: WebAppSession.fd    (C:\Projects\LeafletTest\DDSrc\WebAppSession.fd)
+34753>>>>>>>Open WebAppUser
+Including file: WebAppUser.fd    (C:\Projects\LeafletTest\DDSrc\WebAppUser.fd)
+34755>>>>>>>
+34755>>>>>>>Class cWebAppSessionDataDictionary is a DataDictionary
+34756>>>>>>>    
+34756>>>>>>>    Procedure Construct_Object
+34758>>>>>>>        Forward Send Construct_Object
+34760>>>>>>>        Set Main_File to WebAppSession.File_Number
+34761>>>>>>>
+34761>>>>>>>        Set Add_Server_File to WebAppUser.File_Number
+34762>>>>>>>
+34762>>>>>>>        Set ParentNullAllowed WebAppUser.File_Number to True
+34763>>>>>>>
+34763>>>>>>>        Set Foreign_Field_Option DD_KEYFIELD DD_NOPUT to True
+34764>>>>>>>        Set Foreign_Field_Option DD_KEYFIELD DD_FINDREQ to True
+34765>>>>>>>        Set Foreign_Field_Option DD_INDEXFIELD DD_NOPUT to True
+34766>>>>>>>        Set Foreign_Field_Option DD_DEFAULT DD_DISPLAYONLY to True
+34767>>>>>>>
+34767>>>>>>>        Set Field_Option Field WebAppSession.Active DD_RETAIN to True
+34768>>>>>>>        Set Field_Checkbox_Values Field WebAppSession.Active to "Y" "N"
+34769>>>>>>>        Set Field_Error Field WebAppSession.Active to 500 "Invalid WebAppSession Active State"
+34770>>>>>>>
+34770>>>>>>>    End_Procedure
+34771>>>>>>>
+34771>>>>>>>    Procedure Creating
+34773>>>>>>>        DateTime dtCurrentDateTime
+34773>>>>>>>        
+34773>>>>>>>        Forward Send Creating
+34775>>>>>>>        
+34775>>>>>>>        //  Init usecounter
+34775>>>>>>>        Move 0 to WebAppSession.UseCount
+34776>>>>>>>        
+34776>>>>>>>        //  Set the creation and access time to the current time
+34776>>>>>>>        Move (CurrentDateTime()) to dtCurrentDateTime
+34777>>>>>>>    
+34777>>>>>>>        Get TimeToString dtCurrentDateTime to WebAppSession.CreateTime
+34778>>>>>>>        Get TimeToString dtCurrentDateTime to WebAppSession.LastAccessTime
+34779>>>>>>>        
+34779>>>>>>>        Move dtCurrentDateTime to WebAppSession.CreateDate
+34780>>>>>>>        Move dtCurrentDateTime to WebAppSession.LastAccessDate
+34781>>>>>>>    End_Procedure
+34782>>>>>>>    
+34782>>>>>>>    
+34782>>>>>>>    
+34782>>>>>>>    //
+34782>>>>>>>    //  Converts the given time to an string that can be saved in the database.
+34782>>>>>>>    //
+34782>>>>>>>    //  Params:
+34782>>>>>>>    //      dtTime  Time to convert
+34782>>>>>>>    //  Returns:
+34782>>>>>>>    //      String with "HH:MM:SS" format
+34782>>>>>>>    //
+34782>>>>>>>    Function TimeToString DateTime dtTime Returns String
+34784>>>>>>>        String sHours sMinutes sSeconds
+34784>>>>>>>        
+34784>>>>>>>        //  Extract parts
+34784>>>>>>>        Move (String(DateGetHour(dtTime))) to sHours
+34785>>>>>>>        Move (String(DateGetMinute(dtTime))) to sMinutes
+34786>>>>>>>        Move (String(DateGetSecond(dtTime))) to sSeconds
+34787>>>>>>>        
+34787>>>>>>>        //  Fill out with 0
+34787>>>>>>>        If (Length(sHours) = 1) ;            Move ("0" + sHours) to sHours
+34790>>>>>>>        If (Length(sMinutes) = 1) ;            Move ("0" + sMinutes) to sMinutes
+34793>>>>>>>        If (Length(sSeconds) = 1) ;            Move ("0" + sSeconds) to sSeconds
+34796>>>>>>>        
+34796>>>>>>>        Function_Return (sHours + ":" + sMinutes + ":" + sSeconds)
+34797>>>>>>>    End_Function
+34798>>>>>>>    
+34798>>>>>>>    //
+34798>>>>>>>    //  Sets the time of the datetime variable to the time in the string.
+34798>>>>>>>    //
+34798>>>>>>>    //  Params:
+34798>>>>>>>    //      dtTime  Datetime variable to add time to
+34798>>>>>>>    //      sTimeString String with time in the format "HH:MM:SS"
+34798>>>>>>>    //  Returns:
+34798>>>>>>>    //      dtDateTime with the loaded time
+34798>>>>>>>    //
+34798>>>>>>>    Function StringToTime DateTime dtTime String sTimeString Returns DateTime
+34800>>>>>>>        String sHours sMinutes sSeconds
+34800>>>>>>>        
+34800>>>>>>>        //  Extract parts
+34800>>>>>>>        Move (Mid(sTimeString, 2, 1)) to sHours
+34801>>>>>>>        Move (Mid(sTimeString, 2, 4)) to sMinutes
+34802>>>>>>>        Move (Mid(sTimeString, 2, 7)) to sSeconds
+34803>>>>>>>        
+34803>>>>>>>        //  Set to DateTime
+34803>>>>>>>        Move (DateSetHour(dtTime, (Integer(sHours)))) to dtTime
+34804>>>>>>>        Move (DateSetMinute(dtTime, (Integer(sMinutes)))) to dtTime
+34805>>>>>>>        Move (DateSetSecond(dtTime, (Integer(sSeconds)))) to dtTime
+34806>>>>>>>        
+34806>>>>>>>        Function_Return dtTime
+34807>>>>>>>    End_Function
+34808>>>>>>>
+34808>>>>>>>End_Class
+34809>>>>>Use cWebAppUserDataDictionary.dd
+Including file: cWebAppUserDataDictionary.dd    (C:\Program Files\DataFlex 20.1\Pkg\cWebAppUserDataDictionary.dd)
+34809>>>>>>>Use DataDict.pkg
+34809>>>>>>>Open WebAppUser
+34811>>>>>>>Open WebAppSession
+34813>>>>>>>
+34813>>>>>>>Class cWebAppUserDataDictionary is a DataDictionary
+34814>>>>>>>    
+34814>>>>>>>    Procedure Construct_Object
+34816>>>>>>>        Forward Send Construct_Object
+34818>>>>>>>        Set Main_File to WebAppUser.File_Number
+34819>>>>>>>
+34819>>>>>>>        Set Add_Client_File to WebAppSession.File_Number
+34820>>>>>>>
+34820>>>>>>>        Set Foreign_Field_Option DD_KEYFIELD DD_NOPUT to True
+34821>>>>>>>        Set Foreign_Field_Option DD_KEYFIELD DD_FINDREQ to True
+34822>>>>>>>        Set Foreign_Field_Option DD_INDEXFIELD DD_NOPUT to True
+34823>>>>>>>        Set Foreign_Field_Option DD_DEFAULT DD_DISPLAYONLY to True
+34824>>>>>>>    End_Procedure
+34825>>>>>>>
+34825>>>>>>>End_Class
+34826>>>>>
+34826>>>>>Class cWebSessionManagerStandard is a cWebSessionManager
+34827>>>>>    
+34827>>>>>    Procedure Construct_Object
+34829>>>>>        Handle hoUserDD hoSessionDD
+34829>>>>>        
+34829>>>>>        Forward Send Construct_Object
+34831>>>>>        
+34831>>>>>        Property Handle phoUserDD 0      // Handle to the WebAppUser DDO
+34832>>>>>        Property Handle phoSessionDD 0   // Handle to the WebAppSession DDO        
+34833>>>>>        
+34833>>>>>        Get Create (RefClass(cWebAppUserDataDictionary)) to hoUserDD
+34834>>>>>        Get Create (RefClass(cWebAppSessionDataDictionary)) to hoSessionDD
+34835>>>>>        Set DDO_Server of hoSessionDD to hoUserDD
+34836>>>>>
+34836>>>>>        Set phoUserDD to hoUserDD
+34837>>>>>        Set phoSessionDD to hoSessionDD
+34838>>>>>        Property Boolean pbCreatingNewSession False
+34839>>>>>        Property String psLoginName
+34840>>>>>        Property String psUserName ""
+34841>>>>>        Property Integer piUserRights 0
+34842>>>>>    End_Procedure
+34843>>>>>    
+34843>>>>>    Function CreateSession String sRemoteAddress Returns String
+34845>>>>>        String sSessionKey
+34845>>>>>        Integer iErr
+34845>>>>>        Boolean bLogWebSession
+34845>>>>>        Handle hoSessionDD       
+34845>>>>>        Get phoSessionDD to hoSessionDD
+34846>>>>>        
+34846>>>>>        //  Get session key
+34846>>>>>        Forward Get CreateSession sRemoteAddress to sSessionKey
+34848>>>>>        
+34848>>>>>        Get pbLogWebSession to bLogWebSession
+34849>>>>>        If not bLogWebSession Begin
+34851>>>>>            Function_Return sSessionKey        
+34852>>>>>        End
+34852>>>>>>
+34852>>>>>
+34852>>>>>        //  Store session
+34852>>>>>        Send Clear of hoSessionDD
+34853>>>>>        Set Field_Changed_Value of hoSessionDD Field WebAppSession.SessionKey to sSessionKey
+34854>>>>>        Set Field_Changed_Value of hoSessionDD Field WebAppSession.RemoteAddress to sRemoteAddress
+34855>>>>>        Set Field_Changed_Value of hoSessionDD Field WebAppSession.Active to "Y"
+34856>>>>>        Get Request_Validate of hoSessionDD to iErr
+34857>>>>>        If (iErr) Begin
+34859>>>>>            // this should not happen. If it does its a programming error
+34859>>>>>            Error DFERR_PROGRAM C_$WebAppSesionValidateFailed
+34860>>>>>>
+34860>>>>>            Function_Return ""
+34861>>>>>        End
+34861>>>>>>
+34861>>>>>        Send Request_Save of hoSessionDD
+34862>>>>>       
+34862>>>>>        Function_Return sSessionKey        
+34863>>>>>    End_Function
+34864>>>>>    
+34864>>>>>    
+34864>>>>>    Function ValidateSession String sSessionKey Boolean bOptLoadWebApp Returns Boolean
+34866>>>>>        DateTime dtLastAccess dtCurrent
+34866>>>>>        TimeSpan tsDiff
+34866>>>>>        Integer iErr iSessionTimeout iSpanMinutes
+34866>>>>>        Boolean bResult bCreatingNewSession
+34866>>>>>        Boolean bLogWebSession bLoadWebApp
+34866>>>>>        Integer eLoginMode
+34866>>>>>        String sTime
+34866>>>>>        Handle hoSessionDD hoUserDD       
+34866>>>>>        
+34866>>>>>        Move False to bLoadWebApp
+34867>>>>>        If (num_arguments >= 2) Begin
+34869>>>>>            Move bOptLoadWebApp to bLoadWebApp
+34870>>>>>        End
+34870>>>>>>
+34870>>>>>        
+34870>>>>>        Get phoSessionDD to hoSessionDD
+34871>>>>>        Get phoUserDD to hoUserDD
+34872>>>>>        
+34872>>>>>        Get pbLogWebSession to bLogWebSession
+34873>>>>>        Get peLoginMode to eLoginMode
+34874>>>>>        
+34874>>>>>        // for this object, you can only disable logging if login completely is disabled
+34874>>>>>        If (not(bLogWebSession) and (eLoginMode<>lmLoginNone)) Begin
+34876>>>>>            Error DFERR_PROGRAM C_$WebSessionLoggingMustBeEnabled
+34877>>>>>>
+34877>>>>>            Function_Return False
+34878>>>>>        End
+34878>>>>>>
+34878>>>>>
+34878>>>>>        //  Clear session properties
+34878>>>>>        Set psSessionKey to ""
+34879>>>>>        Send UpdateSessionProperties True
+34880>>>>>        
+34880>>>>>        If not bLogWebSession Begin
+34882>>>>>            Forward Get ValidateSession sSessionKey to bResult
+34884>>>>>            Function_Return bResult
+34885>>>>>        End        
+34885>>>>>>
+34885>>>>>        
+34885>>>>>        Move False to bResult
+34886>>>>>        Get piSessionTimeout to iSessionTimeout 
+34887>>>>>        
+34887>>>>>        //  Check if session exists
+34887>>>>>        Send Clear of hoSessionDD
+34888>>>>>        Move sSessionKey to WebAppSession.SessionKey
+34889>>>>>        Send Find of hoSessionDD EQ Index.1
+34890>>>>>            
+34890>>>>>        If (Found) Begin
+34892>>>>>            //  Calculate timespan between now and last access time
+34892>>>>>            Move (CurrentDateTime()) to dtCurrent
+34893>>>>>            Move WebAppSession.LastAccessDate to dtLastAccess
+34894>>>>>            Get StringToTime of hoSessionDD dtLastAccess WebAppSession.LastAccessTime to dtLastAccess
+34895>>>>>            Move (dtCurrent - dtLastAccess) to tsDiff
+34896>>>>>            Move (SpanTotalMinutes(tsDiff)) to iSpanMinutes
+34897>>>>>            
+34897>>>>>            //  Check if session didn't time out
+34897>>>>>            If (IsDateValid(dtLastAccess) and (iSessionTimeout <= 0 or (iSpanMinutes < iSessionTimeout)) and WebAppSession.Active = "Y") Begin
+34899>>>>>                Forward Get ValidateSession sSessionKey to bResult
+34901>>>>>                   
+34901>>>>>                If (bResult) Begin
+34903>>>>>                    //  Update session record
+34903>>>>>                    Get TimeToString of hoSessionDD dtCurrent to sTime 
+34904>>>>>                    Set Field_Changed_Value of hoSessionDD Field WebAppSession.LastAccessDate to dtCurrent
+34905>>>>>                    Set Field_Changed_Value of hoSessionDD Field WebAppSession.LastAccessTime to sTime
+34906>>>>>                    Set Field_Changed_Value of hoSessionDD Field WebAppSession.UseCount to (WebAppSession.UseCount + 1)
+34907>>>>>                    Get Request_Validate of hoSessionDD to iErr
+34908>>>>>                    If (iErr) Begin
+34910>>>>>                        // this should not happen. If it does its a programming error
+34910>>>>>                        Error DFERR_PROGRAM C_$WebAppSesionValidateFailed
+34911>>>>>>
+34911>>>>>                        Function_Return False
+34912>>>>>                    End
+34912>>>>>>
+34912>>>>>                    Send Request_Save of hoSessionDD
+34913>>>>>                    
+34913>>>>>                    //  Update user properties
+34913>>>>>                    Send UpdateSessionProperties False
+34914>>>>>                End
+34914>>>>>>
+34914>>>>>            End
+34914>>>>>>
+34914>>>>>            Else Begin
+34915>>>>>                // Test the Creating New Session Flag to protect against infinite recursion....
+34915>>>>>                Get pbCreatingNewSession to bCreatingNewSession
+34916>>>>>                
+34916>>>>>                If (not(bCreatingNewSession)) Begin
+34918>>>>>                    Set pbCreatingNewSession to True                    
+34919>>>>>                    Get RecreateSession of ghoWebApp to bResult
+34920>>>>>                    Set pbCreatingNewSession to False
+34921>>>>>                    
+34921>>>>>                    If (not(bLoadWebApp)) Begin
+34923>>>>>                        Move False to bResult   //  We can only continue immediately if we were loading the webapp, other operations are not allowed!
+34924>>>>>                        Error DFERR_WEBAPP_SESSION_TIMEOUT "Your application session has timed out or is inactive, please login again."
+34925>>>>>>
+34925>>>>>                        Send NavigateRefresh of ghoWebApp          // refresh the WebApp at the client (triggers a login)
+34926>>>>>                    End
+34926>>>>>>
+34926>>>>>                End
+34926>>>>>>
+34926>>>>>            End
+34926>>>>>>
+34926>>>>>        End
+34926>>>>>>
+34926>>>>>        Else Begin
+34927>>>>>            Error DFERR_WEBAPP_BAD_SESSION_KEY "Session key not known (reload page to recreate session)"
+34928>>>>>>
+34928>>>>>        End
+34928>>>>>>
+34928>>>>>        
+34928>>>>>        Function_Return bResult
+34929>>>>>    End_Function
+34930>>>>>    
+34930>>>>>    Function UserLogin String sLoginName String sPassword Returns Boolean
+34932>>>>>        String sSessionKey sUserPassword
+34932>>>>>        Handle hoSessionDD hoUserDD
+34932>>>>>        Boolean bMatch  
+34932>>>>>        
+34932>>>>>        Get phoSessionDD to hoSessionDD
+34933>>>>>        Get phoUserDD to hoUserDD
+34934>>>>>        Integer iErr eLoginMode
+34934>>>>>        
+34934>>>>>        // Refind session record
+34934>>>>>        Get psSessionKey to sSessionKey
+34935>>>>>        Send Clear of hoSessionDD
+34936>>>>>        Move sSessionKey to WebAppSession.SessionKey
+34937>>>>>        Send Find of hoSessionDD EQ Index.1
+34938>>>>>        
+34938>>>>>        If (Found and WebAppSession.SessionKey = sSessionKey) Begin
+34940>>>>>            Get peLoginMode to eLoginMode
+34941>>>>>            
+34941>>>>>            //  Find the user
+34941>>>>>            Move sLoginName to WebAppUser.LoginName
+34942>>>>>            Send Find of hoUserDD EQ Index.1
+34943>>>>>            
+34943>>>>>            // Check username and password
+34943>>>>>            If (Found and (Lowercase(sLoginName) = Lowercase(Trim(WebAppUser.LoginName)))) Begin
+34945>>>>>                Get Field_Current_Value of hoUserDD Field WebAppUser.Password to sUserPassword
+34946>>>>>                Get ComparePasswords (Trim(sUserPassword)) (Trim(sPassword)) to bMatch
+34947>>>>>                
+34947>>>>>                If (bMatch) Begin
+34949>>>>>                    // Store the login
+34949>>>>>                    Set Field_Changed_Value of hoUserDD Field WebAppUser.LastLogin to (CurrentDateTime())
+34950>>>>>                    Get Request_Validate of hoSessionDD to iErr
+34951>>>>>                    If (iErr) Begin
+34953>>>>>                        // this should not happen. If it does its a programming error
+34953>>>>>                        Error DFERR_PROGRAM C_$WebAppSesionValidateFailed
+34954>>>>>>
+34954>>>>>                        Function_Return False
+34955>>>>>                    End
+34955>>>>>>
+34955>>>>>                    
+34955>>>>>                    Send Request_Save of hoSessionDD
+34956>>>>>                    
+34956>>>>>                    // Update session properties
+34956>>>>>                    Send UpdateSessionProperties False
+34957>>>>>                    Send NotifyChangeRights
+34958>>>>>                    Function_Return True
+34959>>>>>                End
+34959>>>>>>
+34959>>>>>                Else Begin
+34960>>>>>                    //  We should rely directly on this buffer elsewhere but just be sure
+34960>>>>>                    Send Clear of hoUserDD
+34961>>>>>                End
+34961>>>>>>
+34961>>>>>            End
+34961>>>>>>
+34961>>>>>        End
+34961>>>>>>
+34961>>>>>          
+34961>>>>>        Function_Return False
+34962>>>>>    End_Function
+34963>>>>>    
+34963>>>>>    Function IsLoggedIn Returns Boolean
+34965>>>>>        String sLoginName
+34965>>>>>        Boolean bLogWebSession bLoggedIn
+34965>>>>>        
+34965>>>>>        Get pbLogWebSession to bLogWebSession
+34966>>>>>        If not bLogWebSession Begin
+34968>>>>>            Forward Get IsLoggedIn to bLoggedIn
+34970>>>>>            Function_Return bLoggedIn
+34971>>>>>        End
+34971>>>>>>
+34971>>>>>        
+34971>>>>>        Get psLoginName to sLoginName
+34972>>>>>        
+34972>>>>>        Function_Return (sLoginName <> "")
+34973>>>>>    End_Function
+34974>>>>>    
+34974>>>>>    
+34974>>>>>    //
+34974>>>>>    // This procedure is called when validating a session and after logging in. Its purpose is to 
+34974>>>>>    // update properties based on the session and user data. Augment this function to update 
+34974>>>>>    // properties based on the session / user table. Note that WebAppUser and WebAppSession contain
+34974>>>>>    // the right records when this procedure is called.
+34974>>>>>    //
+34974>>>>>    // Params:
+34974>>>>>    //      bClear   True if the procedure is called before session validation to clear properties.
+34974>>>>>    //
+34974>>>>>    Procedure UpdateSessionProperties Boolean bClear
+34976>>>>>        Handle hoUserDD
+34976>>>>>        
+34976>>>>>        Get phoUserDD to hoUserDD
+34977>>>>>        
+34977>>>>>        //  Update user properties
+34977>>>>>        If (not(bClear) and HasRecord(hoUserDD)) Begin
+34979>>>>>            Set psUsername to (Trim(WebAppUser.FullName))
+34980>>>>>            Set psLoginName to (Trim(WebAppUser.LoginName))
+34981>>>>>            Set piUserRights to WebAppUser.Rights
+34982>>>>>            
+34982>>>>>            Send OnSessionPropertiesSet 
+34983>>>>>        End
+34983>>>>>>
+34983>>>>>        Else Begin
+34984>>>>>            Set psUsername to ""
+34985>>>>>            Set psLoginName to ""
+34986>>>>>            Set piUserRights to 0
+34987>>>>>            
+34987>>>>>            Send OnSessionPropertiesClear
+34988>>>>>        End
+34988>>>>>>
+34988>>>>>    End_Procedure
+34989>>>>>    
+34989>>>>>    //
+34989>>>>>    // This function is called to perform the password comparison. It gets the entered password and
+34989>>>>>    // the password value of the user table as parameters. The WebAppUser buffer will contain the
+34989>>>>>    // right record. This function can be augmented to implement security features like storing the
+34989>>>>>    // password as a hashed value.
+34989>>>>>    //
+34989>>>>>    // Params:
+34989>>>>>    //      sUserPassword       Value of the WebAppUser.Password field.
+34989>>>>>    //      sEnteredPassword    Value entered on the login screen during login.
+34989>>>>>    //
+34989>>>>>    Function ComparePasswords String sUserPassword String sEnteredPassword Returns Boolean
+34991>>>>>        Function_Return (sUserPassword = sEnteredPassword)
+34992>>>>>    End_Function
+34993>>>>>    
+34993>>>>>    Procedure OnSessionPropertiesSet
+34995>>>>>        //  Empty event stub
+34995>>>>>    End_Procedure
+34996>>>>>    
+34996>>>>>    Procedure OnSessionPropertiesClear
+34998>>>>>        //  Empty event stub
+34998>>>>>    End_Procedure
+34999>>>>>    
+34999>>>>>    Procedure EndSession
+35001>>>>>        Integer iErr
+35001>>>>>        Boolean bLogWebSession
+35001>>>>>        Handle hoSessionDD       
+35001>>>>>        
+35001>>>>>        Get phoSessionDD to hoSessionDD
+35002>>>>>        Get pbLogWebSession to bLogWebSession
+35003>>>>>        If not bLogWebSession Begin
+35005>>>>>            Forward Send EndSession
+35007>>>>>            Procedure_Return
+35008>>>>>        End
+35008>>>>>>
+35008>>>>>            
+35008>>>>>        //  Check if session exists
+35008>>>>>        Send Clear of hoSessionDD
+35009>>>>>        Get psSessionKey to WebAppSession.SessionKey
+35010>>>>>        
+35010>>>>>        Send Find of hoSessionDD EQ Index.1
+35011>>>>>        If (Found) Begin
+35013>>>>>            Set Field_Changed_Value of hoSessionDD Field WebAppSession.Active to "N"
+35014>>>>>            Get Request_Validate of hoSessionDD to iErr
+35015>>>>>            If (iErr) Begin
+35017>>>>>                // this should not happen. If it does its a programming error
+35017>>>>>                Error DFERR_PROGRAM C_$WebAppSesionValidateFailed
+35018>>>>>>
+35018>>>>>                Procedure_Return
+35019>>>>>            End
+35019>>>>>>
+35019>>>>>            Send Request_Save of hoSessionDD
+35020>>>>>        End
+35020>>>>>>
+35020>>>>>    End_Procedure
+35021>>>>>
+35021>>>>>End_Class
+35022>>>>>
+35022>>>
+35022>>>Object oSessionManager is a cWebSessionManagerStandard
+35024>>>End_Object
+35025>>>
+35025>>>
+35025>    Use LoginDialog.wo
+Including file: LoginDialog.wo    (C:\Projects\LeafletTest\AppSrc\LoginDialog.wo)
+35025>>>Use cWebModalDialog.pkg
+35025>>>Use cWebForm.pkg
+35025>>>Use cWebButton.pkg
+35025>>>Use cWebPanel.pkg
+35025>>>Use cWebLabel.pkg
+35025>>>
+35025>>>Object oLoginDialog is a cWebModalDialog
+35027>>>    Set piMinWidth to 370
+35028>>>    Set piMinHeight to 220
+35029>>>    Set psCaption to "Login"
+35030>>>    Set pbShowClose to (peLoginMode(oWebApp) <> lmLoginRequired)
+35031>>>    Set pbLoginModeEnforced to False
+35032>>>    
+35032>>>    Delegate Set phoLoginView to Self
+35034>>>    
+35034>>>    Object oTopPanel is a cWebPanel
+35036>>>        Set peRegion to prTop
+35037>>>        Set piHeight to 55       
+35038>>>        
+35038>>>        Object oDescription is a cWebLabel
+35040>>>            Set psCaption to "Please enter your username and password to login."
+35041>>>            Set peAlign to alignCenter
+35042>>>        End_Object
+35043>>>    End_Object
+35044>>>    
+35044>>>    Object oRightPanel is a cWebPanel
+35046>>>        Set peRegion to prRight
+35047>>>        Set piWidth to 20       
+35048>>>    End_Object
+35049>>>    
+35049>>>    Object oMainPanel is a cWebPanel
+35051>>>        Set peRegion to prCenter
+35052>>>        
+35052>>>        Object oLoginName is a cWebForm
+35054>>>            Set psLabel to "Login Name:"
+35055>>>            Set peLabelPosition to C_WebDefault
+35056>>>            Set peLabelAlign to alignRight
+35057>>>            Set piMaxLength to 20
+35058>>>            Set psAutoComplete to "username"
+35059>>>        End_Object
+35060>>>        
+35060>>>        Object oPassword is a cWebForm
+35062>>>            Set psLabel to "Password:"
+35063>>>            Set pbPassword to True
+35064>>>            Set peLabelAlign to alignRight
+35065>>>            Set piMaxLength to 20
+35066>>>            Set psAutoComplete to "current-password"
+35067>>>        End_Object   
+35068>>>        
+35068>>>        Object oWarning is a cWebLabel
+35070>>>            Set pbVisible to False
+35071>>>            Set psCaption to "Invalid loginname or password."
+35072>>>            Set psCSSClass to "Warning"
+35073>>>            Set peAlign to alignCenter
+35074>>>        End_Object
+35075>>>    End_Object
+35076>>>    
+35076>>>    Object oButtonPanel is a cWebPanel
+35078>>>        Set peRegion to prBottom
+35079>>>        Set piColumnCount to 3
+35080>>>        Set piMinHeight to 40
+35081>>>
+35081>>>        Object oLoginButton is a cWebButton
+35083>>>            Set pbShowLabel to False
+35084>>>            Set piColumnIndex to 2
+35085>>>            Set psCaption to "Login"
+35086>>>            Set pbServerOnClick to True
+35087>>>                        
+35087>>>            Procedure OnClick
+35090>>>                Send DoLogin
+35091>>>            End_Procedure
+35092>>>            
+35092>>>        End_Object
+35093>>>        
+35093>>>    End_Object
+35094>>>    
+35094>>>    Procedure DoLogin
+35097>>>        String sLoginName sPassword
+35097>>>        Boolean bResult
+35097>>>        Handle hoDefaultView
+35097>>>        
+35097>>>        WebGet psValue of oLoginName to sLoginName
+35100>>>        WebGet psValue of oPassword to sPassword
+35103>>>        
+35103>>>        Get UserLogin of ghoWebSessionManager sLoginName sPassword to bResult
+35104>>>        
+35104>>>        If (bResult) Begin
+35106>>>            Send Hide of oLoginDialog
+35107>>>            Get GetDefaultView to hoDefaultView
+35108>>>            If (hoDefaultView > 0) Begin
+35110>>>                Send Show of hoDefaultView
+35111>>>            End
+35111>>>>
+35111>>>            
+35111>>>            // clear the login values. we don't want to return the login id & password as synchronized properties....
+35111>>>            WebSet psValue of oLoginName to ""
+35112>>>            WebSet psValue of oPassword  to ""
+35113>>>            WebSet pbVisible of oWarning to False
+35114>>>        End
+35114>>>>
+35114>>>        Else Begin
+35115>>>            WebSet pbVisible of oWarning to True
+35116>>>        End
+35116>>>>
+35116>>>    End_Procedure
+35117>>>    
+35117>>>    
+35117>>>    Set pbServerOnSubmit to True
+35118>>>    Procedure OnSubmit
+35121>>>         Send DoLogin
+35122>>>    End_Procedure
+35123>>>End_Object
+35124>    Use WebResourceManager.wo
+Including file: WebResourceManager.wo    (C:\Projects\LeafletTest\AppSrc\WebResourceManager.wo)
+35124>>>Use cWebResourceManager.pkg
+35124>>>
+35124>>>Object oWebResourceManager is a cWebResourceManager
+35126>>>End_Object
+35127>    Use SimpleMapTest.wo
+Including file: SimpleMapTest.wo    (C:\Projects\LeafletTest\AppSrc\SimpleMapTest.wo)
+35127>>>Use cWebView.pkg
+35127>>>Use cWebPanel.pkg
+35127>>>Use cWebForm.pkg 
+35127>>>Use cWebButton.pkg
+35127>>>Use cWebSpacer.pkg
+35127>>>Use cLeafletMappingControl.pkg
+Including file: cLeafletMappingControl.pkg    (C:\Projects\LeafletLibrary\cLeafletMappingControl.pkg)
+35127>>>>>Use cWebBaseControl.pkg
+35127>>>>>Use cJsonObject.pkg
+35127>>>>>
+35127>>>>>// Geoserver structs
+35127>>>>>
+35127>>>>>Struct stGsGeom
+35127>>>>>    String type
+35127>>>>>    Number[][][] coordinates
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stGsFeature
+35127>>>>>    String   type
+35127>>>>>    String   id
+35127>>>>>    stGsGeom geometry
+35127>>>>>    stGsGeom geometry
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stGeoserverResp
+35127>>>>>    String type
+35127>>>>>    Integer totalFeatures
+35127>>>>>    stGsFeature[] features
+35127>>>>>    stGsFeature[] features
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stMapInfo
+35127>>>>>    Number   lat
+35127>>>>>    Number   lng
+35127>>>>>    Number   zoom
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stMarker
+35127>>>>>    Number[] aPoint
+35127>>>>>    String   sText
+35127>>>>>    Boolean  bRise
+35127>>>>>    String   sIcon
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stMarkers
+35127>>>>>    stMarker[] atMarkers
+35127>>>>>    stMarker[] atMarkers
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stPolygon
+35127>>>>>    Number[][] aPoints
+35127>>>>>    Boolean    bStroke
+35127>>>>>    String     sLineColor
+35127>>>>>    Integer    iLineWeight
+35127>>>>>    Number     nLineOpacity
+35127>>>>>    String     sFillColor
+35127>>>>>    Number     nFillOpacity
+35127>>>>>    Boolean    bFitMap
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stPolygons
+35127>>>>>    stPolygon[] atPolygons
+35127>>>>>    stPolygon[] atPolygons
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stPolyline
+35127>>>>>    Number[][] aPoints
+35127>>>>>    Boolean    bStroke
+35127>>>>>    Boolean    bFitMap
+35127>>>>>    String     sLineColor
+35127>>>>>    Integer    iLineWeight
+35127>>>>>    Number     nOpacity
+35127>>>>>    String     sText
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stPolylines
+35127>>>>>    stPolyline[] atPolylines
+35127>>>>>    stPolyline[] atPolylines
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stCircle
+35127>>>>>    Number[] aCenter
+35127>>>>>    // ToDo:  More
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Struct stCircles
+35127>>>>>    stCircle[] atCircles
+35127>>>>>    stCircle[] atCircles
+35127>>>>>End_Struct
+35127>>>>>
+35127>>>>>Class cLeafletMappingControl is a cWebBaseControl
+35128>>>>>    
+35128>>>>>    Procedure Construct_Object
+35130>>>>>        Forward Send Construct_Object
+35132>>>>>        
+35132>>>>>        Property String psMapDataAttrib 'Map data &copy; <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a>'
+35133>>>>>        Property String psImageryAttrib 'Imagery &copy; <a href="https://www.mapbox.com/" target="_blank">Mapbox</a>'
+35134>>>>>        
+35134>>>>>        // Client properties
+35134>>>>>        Property Number     pnNorth
+35137>>>>>        Property Number     pnEast
+35140>>>>>        Property Integer    piInitialZoom
+35143>>>>>        Property String     psTileLayer
+35146>>>>>        Property Integer    piMaxZoom
+35149>>>>>        Property String     psAccessToken
+35152>>>>>        Property String     psLayerID
+35155>>>>>        Property String     psTileSize "256"
+35158>>>>>        Property String     psAttribution
+35161>>>>>        Property Boolean    pbAttribution
+35164>>>>>        Property Boolean    pbZoomControl
+35167>>>>>        Property Boolean    pbServerOnMapClick
+35170>>>>>        Property Boolean    pbServerOnMapDblClick
+35173>>>>>        
+35173>>>>>        // These  are for passing JSON string representations of the 
+35173>>>>>        // matching server properties below to the client / server
+35173>>>>>        Property String     psMarkers
+35176>>>>>        Property String     psPolygons
+35179>>>>>        Property String     psPolylines
+35182>>>>>        Property String     psCurrentMapInfo
+35185>>>>>        
+35185>>>>>        // Server properties
+35185>>>>>        Property stMarkers  ptMarkers
+35188>>>>>        Property stPolygons ptPolygons
+35191>>>>>        Property stPolylines ptPolylines
+35194>>>>>        
+35194>>>>>        // Note: you will need to get your own access token and set it here:
+35194>>>>>        Set psAccessToken   to (Config("tokens.leafletAccessToken"))
+35195>>>>>        Set psTileLayer     to "https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}"
+35196>>>>>        Set psLayerID       to "mapbox/streets-v11"        
+35197>>>>>        Set psAttribution   to 'Map data &copy; <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> contributors: Imagery &copy; <a href="https://www.mapbox.com/">Mapbox</a>'
+35198>>>>>
+35198>>>>>        Set pbShowLabel     to False  // No label by default
+35199>>>>>        Set piMinHeight     to 100
+35200>>>>>        Set piColumnSpan    to 0
+35201>>>>>        Set pbFillHeight    to True
+35202>>>>>        
+35202>>>>>        Set psJSClass to "dfcc.leafletMappingControl"
+35203>>>>>    End_Procedure
+35204>>>>>
+35204>>>>>    Procedure RenderMap
+35206>>>>>        Send ClientAction "drawMap"
+35207>>>>>    End_Procedure
+35208>>>>>    
+35208>>>>>    Procedure DefineMap Number nNorth Number nEast Integer iInitZoom Integer iMaxZoom
+35210>>>>>        WebSet pnNorth          to nNorth
+35211>>>>>        WebSet pnEast           to nEast
+35212>>>>>        WebSet piInitialZoom    to iInitZoom
+35213>>>>>        WebSet piMaxZoom        to iMaxZoom
+35214>>>>>    End_Procedure
+35215>>>>>    
+35215>>>>>    // This is just a shothhand for DefineMap plus RenderMap in one step
+35215>>>>>    Procedure DrawMap Number nNorth Number nEast Integer iInitZoom Integer iMaxZoom
+35217>>>>>        Send DefineMap nNorth nEast iInitZoom iMaxZoom
+35218>>>>>        Send RenderMap
+35219>>>>>    End_Procedure
+35220>>>>>    
+35220>>>>>    Procedure FitBounds Number nMinN Number nMinE Number nMaxN Number nMaxE
+35222>>>>>        String[] asParams
+35223>>>>>        
+35223>>>>>        Move nMinN to asParams[0]
+35224>>>>>        Move nMinE to asParams[1]
+35225>>>>>        Move nMaxN to asParams[2]
+35226>>>>>        Move nMaxE to asParams[3]
+35227>>>>>        
+35227>>>>>        Send ClientAction "fitBounds" asParams
+35228>>>>>    End_Procedure
+35229>>>>>    
+35229>>>>>    Function AddPolygon stPolygon tPolygon Returns Integer
+35231>>>>>        stPolygons tPolys
+35231>>>>>        stPolygons tPolys
+35231>>>>>        Integer iIndex
+35231>>>>>        Handle  hoJson
+35231>>>>>        String  sJson
+35231>>>>>        
+35231>>>>>        WebGet ptPolygons to tPolys
+35234>>>>>        Move (SizeOfArray(tPolys.atPolygons)) to iIndex
+35235>>>>>        Move tPolygon to tPolys.atPolygons[iIndex]
+35236>>>>>        WebSet ptPolygons to tPolys
+35237>>>>>        
+35237>>>>>        Get Create (RefClass(cJsonObject)) to hoJson
+35238>>>>>        Send DataTypeToJson of hoJson tPolys
+35239>>>>>        Get Stringify of hoJson to sJson
+35240>>>>>        Send Destroy of hoJson
+35241>>>>>        WebSet psPolygons to sJson
+35242>>>>>        
+35242>>>>>        Function_Return iIndex
+35243>>>>>    End_Function
+35244>>>>>    
+35244>>>>>    Procedure RemovePolygon Integer iIndex
+35246>>>>>        stPolygons tPolys
+35246>>>>>        stPolygons tPolys
+35246>>>>>        String[]   asParams
+35247>>>>>        Handle     hoJson
+35247>>>>>        String     sJson
+35247>>>>>        
+35247>>>>>        WebGet ptPolygons to tPolys
+35250>>>>>        
+35250>>>>>        If (iIndex < SizeOfArray(tPolys.atPolygons)) Begin
+35252>>>>>            // Remove it from the server side property
+35252>>>>>            Move (RemoveFromArray(tPolys.atPolygons, iIndex)) to tPolys.atPolygons
+35253>>>>>            WebSet ptPolygons to tPolys
+35254>>>>>            
+35254>>>>>            // Serialize that and web set it
+35254>>>>>            Get Create (RefClass(cJsonObject)) to hoJson
+35255>>>>>            Send DataTypeToJson of hoJson tPolys
+35256>>>>>            Get Stringify of hoJson to sJson
+35257>>>>>            Send Destroy of hoJson
+35258>>>>>            WebSet psPolygons to sJson
+35259>>>>>            
+35259>>>>>            // Remove it from the client
+35259>>>>>            Move iIndex to asParams[0]
+35260>>>>>            Send ClientAction "removePolygon" asParams
+35261>>>>>        End
+35261>>>>>>
+35261>>>>>        
+35261>>>>>    End_Procedure
+35262>>>>>        
+35262>>>>>    Procedure RenderPolygon Integer iIndex
+35264>>>>>        String[] asParams
+35265>>>>>        
+35265>>>>>        Move iIndex to asParams[0]
+35266>>>>>        Send ClientAction "drawPolygon" asParams
+35267>>>>>    End_Procedure
+35268>>>>>    
+35268>>>>>    Procedure UnrenderPolygon Integer iIndex
+35270>>>>>        String[] asParams
+35271>>>>>        
+35271>>>>>        Move iIndex to asParams[0]
+35272>>>>>        Send ClientAction "undrawPolygon" asParams
+35273>>>>>    End_Procedure
+35274>>>>>    
+35274>>>>>    // Shortcut combining AddPolygon and RenderPolygon
+35274>>>>>    Procedure DrawPolygon stPolygon tPoly
+35276>>>>>        Integer i
+35276>>>>>        
+35276>>>>>        Get AddPolygon tPoly to i
+35277>>>>>        Send RenderPolygon i
+35278>>>>>    End_Procedure
+35279>>>>>    
+35279>>>>>    Function DefinePolyline stPolyline tLine Returns Integer
+35281>>>>>        stPolylines tLines
+35281>>>>>        stPolylines tLines
+35281>>>>>        Integer iIndex
+35281>>>>>        Handle  hoJson
+35281>>>>>        String  sJson
+35281>>>>>        
+35281>>>>>        WebGet ptPolylines to tLines
+35284>>>>>        Move (SizeOfArray(tLines.atPolylines)) to iIndex
+35285>>>>>        Move tLine to tLines.atPolylines[iIndex]
+35286>>>>>        WebSet ptPolylines to tLines
+35287>>>>>        
+35287>>>>>        Get Create (RefClass(cJsonObject)) to hoJson
+35288>>>>>        Send DataTypeToJson of hoJson tLines
+35289>>>>>        Get Stringify of hoJson to sJson
+35290>>>>>        Send Destroy of hoJson
+35291>>>>>        WebSet psPolylines to sJson
+35292>>>>>        
+35292>>>>>        Function_Return iIndex
+35293>>>>>    End_Function
+35294>>>>>    
+35294>>>>>    Procedure RenderPolyline Integer iIndex
+35296>>>>>        String[] asParams
+35297>>>>>        
+35297>>>>>        Move iIndex to asParams[0]
+35298>>>>>        Send ClientAction "drawPolyline" asParams
+35299>>>>>    End_Procedure
+35300>>>>>    
+35300>>>>>    Procedure DrawPolyLine stPolyline tLine
+35302>>>>>        Integer iIndex
+35302>>>>>        
+35302>>>>>        Get DefinePolyline tLine to iIndex
+35303>>>>>        Send RenderPolyline iIndex
+35304>>>>>    End_Procedure
+35305>>>>>    
+35305>>>>>    Function DefineMarker Number nNorth Number nEast String sText String sIcon Boolean bRise Returns Integer
+35307>>>>>        stMarkers tMarkers
+35307>>>>>        stMarkers tMarkers
+35307>>>>>        Integer   iIndex
+35307>>>>>        Handle    hoJson
+35307>>>>>        String    sJson
+35307>>>>>        
+35307>>>>>        WebGet ptMarkers to tMarkers
+35310>>>>>        Move (SizeOfArray(tMarkers.atMarkers)) to iIndex
+35311>>>>>        Move nNorth to tMarkers.atMarkers[iIndex].aPoint[0]
+35312>>>>>        Move nEast  to tMarkers.atMarkers[iIndex].aPoint[1]
+35313>>>>>        Move sText  to tMarkers.atMarkers[iIndex].sText
+35314>>>>>        Move bRise  to tMarkers.atMarkers[iIndex].bRise
+35315>>>>>        Move sIcon  to tMarkers.atMarkers[iIndex].sIcon
+35316>>>>>        WebSet ptMarkers to tMarkers
+35317>>>>>        
+35317>>>>>        Get Create (RefClass(cJsonObject)) to hoJson
+35318>>>>>        Send DataTypeToJson of hoJson tMarkers
+35319>>>>>        Get Stringify of hoJson to sJson
+35320>>>>>        Send Destroy of hoJson
+35321>>>>>        WebSet psMarkers to sJson
+35322>>>>>        
+35322>>>>>        Function_Return iIndex
+35323>>>>>    End_Function
+35324>>>>>    
+35324>>>>>    Procedure ShowMarker Integer iIndex
+35326>>>>>        String[] asParams
+35327>>>>>        
+35327>>>>>        Move iIndex to asParams[0]
+35328>>>>>        Send ClientAction "drawMarker" asParams
+35329>>>>>    End_Procedure
+35330>>>>>    
+35330>>>>>    Procedure HideMarker  Integer iIndex
+35332>>>>>        String[] asParams
+35333>>>>>        
+35333>>>>>        Move iIndex to asParams[0]
+35334>>>>>        Send ClientAction "hideMarker" asParams
+35335>>>>>    End_Procedure
+35336>>>>>    
+35336>>>>>    // Shortcut combining DefineMarker and ShowMarker
+35336>>>>>    Procedure DrawMarker Number nNorth Number nEast String sText String sIcon Boolean bRise
+35338>>>>>        Integer iMrk
+35338>>>>>        
+35338>>>>>        Get DefineMarker nNorth nEast sText sIcon bRise to iMrk
+35339>>>>>        Send ShowMarker iMrk
+35340>>>>>    End_Procedure
+35341>>>>>    
+35341>>>>>    Procedure OnMapClick String sLat String sLng
+35343>>>>>    End_Procedure
+35344>>>>>    
+35344>>>>>    Procedure OnMapDblClick String sLat String sLng
+35346>>>>>    End_Procedure
+35347>>>>>    
+35347>>>>>    Function CurrentMapInfo Returns stMapInfo
+35349>>>>>        String    sInfo
+35349>>>>>        stMapInfo tInfo
+35349>>>>>        stMapInfo tInfo
+35349>>>>>        Handle    hoJson
+35349>>>>>        Boolean   bOK
+35349>>>>>        
+35349>>>>>        WebGet psCurrentMapInfo to sInfo
+35352>>>>>        
+35352>>>>>        If (sInfo <> "") Begin
+35354>>>>>            Get Create (RefClass(cJsonObject)) to hoJson
+35355>>>>>            Set pbRequireAllMembers of hoJson to False
+35356>>>>>            Get ParseString of hoJson sInfo to bOK
+35357>>>>>            
+35357>>>>>            If bOK ;                Get JsonToDataType of hoJson to tInfo
+35360>>>>>            Send Destroy of hoJson
+35361>>>>>        End
+35361>>>>>>
+35361>>>>>        
+35361>>>>>        Function_Return tInfo
+35362>>>>>    End_Function
+35363>>>>>    
+35363>>>>>    Procedure ChangeLayer String sLayer
+35365>>>>>        String[] asParams
+35366>>>>>        
+35366>>>>>        Move sLayer to asParams[0]
+35367>>>>>        Send ClientAction "changeLayer" asParams
+35368>>>>>    End_Procedure
+35369>>>>>    
+35369>>>>>    Procedure ChangeResolution String sRes
+35371>>>>>        WebSet psTileSize to sRes
+35372>>>>>
+35372>>>>>        Send ClientAction "changeResolution"
+35373>>>>>    End_Procedure
+35374>>>>>    
+35374>>>>>    Procedure GetMyLocation
+35376>>>>>        Send ClientAction "getCurrentLoc"
+35377>>>>>    End_Procedure
+35378>>>>>        
+35378>>>>>    Procedure MyLocation Number nLat Number nLng 
+35380>>>>>    End_Procedure
+35381>>>>>    
+35381>>>>>    Procedure GeoContributor String sName String sURL String sRole Boolean bCopy
+35383>>>>>        String sMapAtt sImageAtt sAttribution
+35383>>>>>        
+35383>>>>>        Get psMapDataAttrib to sMapAtt
+35384>>>>>        Get psImageryAttrib to sImageAtt
+35385>>>>>        
+35385>>>>>        Move (sMapAtt + ", contributors:" * ;              sRole * If(bCopy, "&copy; ", "") + ;              If((sURL = ""), "", ("<a href='" + sURL + "' target='_blank'>")) + ;              sName + If((sURL = ""), "", "</a>") * sImageAtt) to sAttribution
+35386>>>>>        
+35386>>>>>        WebSet psAttribution to sAttribution
+35387>>>>>    End_Procedure
+35388>>>>>    
+35388>>>>>    Procedure End_Construct_Object
+35390>>>>>        WebPublishProcedure OnMapClick
+35391>>>>>        WebPublishProcedure OnMapDblClick
+35392>>>>>        WebPublishProcedure MyLocation
+35393>>>>>        Forward Send End_Construct_Object
+35395>>>>>    End_Procedure
+35396>>>>>    
+35396>>>>>End_Class
+35397>>>Use GeoConnectors\cLocationIQConnector.pkg
+Including file: GeoConnectors\cLocationIQConnector.pkg    (C:\Projects\LeafletTest\AppSrc\GeoConnectors\cLocationIQConnector.pkg)
+35397>>>>>Use cGeocodeConnector.pkg
+Including file: cGeocodeConnector.pkg    (C:\Projects\LeafletTest\AppSrc\cGeocodeConnector.pkg)
+35397>>>>>>>Use UI
+35397>>>>>>>Use cHttpTransfer.pkg
+Including file: cHttpTransfer.pkg    (C:\Program Files\DataFlex 20.1\Pkg\cHttpTransfer.pkg)
+35397>>>>>>>>>Use VDFBase.pkg
+35397>>>>>>>>>
+35397>>>>>>>>>Class cHttpTransfer is a cBaseHttpTransfer
+35398>>>>>>>>>    
+35398>>>>>>>>>    Function HttpPostRequest String sFilePath String sData Integer bDataIsFile Returns Integer
+35400>>>>>>>>>        Integer bStat
+35400>>>>>>>>>        Get HttpPostAddrRequest sFilePath (AddressOf(sData)) (SizeOfString(sData)) bDataIsfile to bStat
+35401>>>>>>>>>        Function_Return bStat
+35402>>>>>>>>>    End_Function
+35403>>>>>>>>>    
+35403>>>>>>>>>    // This event is not triggered from the runtime. It now uses UChar arrays as the data might 
+35403>>>>>>>>>    // not be a valid string (it can any binary data). It still calls the orriginal event for 
+35403>>>>>>>>>    // backwards compatibility.
+35403>>>>>>>>>    Procedure OnDataReceivedUC String sContentType UChar[] ucData
+35405>>>>>>>>>        Send OnDataReceived sContentType (UCharArrayToString(ucData))
+35406>>>>>>>>>    End_Procedure
+35407>>>>>>>>>    
+35407>>>>>>>>>    // Only use this event if you know for sure the data is a string and make sure piBufferSize is
+35407>>>>>>>>>    // smaller than the argument size.
+35407>>>>>>>>>    Procedure OnDataReceived String sContentType String sData
+35409>>>>>>>>>        
+35409>>>>>>>>>    End_Procedure
+35410>>>>>>>>>    
+35410>>>>>>>>>    Function HttpPutRequest String sFilePath String sData Integer bDataIsFile Returns Integer
+35412>>>>>>>>>        Integer bStat
+35412>>>>>>>>>        Get HttpPutAddrRequest sFilePath (AddressOf(sData)) (SizeOfString(sData)) bDataIsfile to bStat
+35413>>>>>>>>>        Function_Return bStat
+35414>>>>>>>>>    End_Function
+35415>>>>>>>>>    
+35415>>>>>>>>>End_Class
+35416>>>>>>>Use cJsonObject.pkg
+35416>>>>>>>Use cJsonPath.pkg
+Including file: cJsonPath.pkg    (C:\Projects\LeafletTest\AppSrc\cJsonPath.pkg)
+35416>>>>>>>>>//==============================================================================
+35416>>>>>>>>>// cJsonPath.pkg
+35416>>>>>>>>>//
+35416>>>>>>>>>// A class which will allow you to get either object handles or values from JSON
+35416>>>>>>>>>// objects using their path.
+35416>>>>>>>>>// 
+35416>>>>>>>>>// Author:  Mike Peat
+35416>>>>>>>>>// Date:    06/02/2020
+35416>>>>>>>>>//
+35416>>>>>>>>>// Usage:
+35416>>>>>>>>>//   To return a JSON object at a path:
+35416>>>>>>>>>//       Get JsonAtPath of oJsonPathObject hoSourceJsonObject, path to hoVar
+35416>>>>>>>>>//     or:
+35416>>>>>>>>>//       Move (JsonAtPath(oJsonPathObject, hoSourceJsonObject, path)) to hoVar
+35416>>>>>>>>>//
+35416>>>>>>>>>//   To return a value at a path:
+35416>>>>>>>>>//       Get ValueAtPath of oJsonPathObject hoSourceJsonObject path to sVar
+35416>>>>>>>>>//     or
+35416>>>>>>>>>//       Move (ValueAtPath(oJsonPathObject, hoSourceJson, path)) to sVar
+35416>>>>>>>>>//
+35416>>>>>>>>>// Path notation:
+35416>>>>>>>>>//
+35416>>>>>>>>>//    A string with JSON object names, separated by dots "." and array indices
+35416>>>>>>>>>//    in square brackets: "foo.bar.baz[0].bill[1][0]"
+35416>>>>>>>>>//
+35416>>>>>>>>>// Sample JSON:
+35416>>>>>>>>>//
+35416>>>>>>>>>//    {
+35416>>>>>>>>>//      "foo": {
+35416>>>>>>>>>//              "bar": {
+35416>>>>>>>>>//                      "baz": [
+35416>>>>>>>>>//                              66.123,
+35416>>>>>>>>>//                              {
+35416>>>>>>>>>//                                      "jim": "jack"
+35416>>>>>>>>>//                              },
+35416>>>>>>>>>//                              false,
+35416>>>>>>>>>//                              {
+35416>>>>>>>>>//                                      "bob": 42
+35416>>>>>>>>>//                              },
+35416>>>>>>>>>//                              {
+35416>>>>>>>>>//                                      "kim": "possible"
+35416>>>>>>>>>//                              },
+35416>>>>>>>>>//                              [55, 1, 19, {
+35416>>>>>>>>>//                                      "Mork": [
+35416>>>>>>>>>//                                              [35, 67, 88, 100, [21, 33, 45, "Tim"]]
+35416>>>>>>>>>//                                      ]
+35416>>>>>>>>>//                              }]
+35416>>>>>>>>>//                      ]
+35416>>>>>>>>>//              }
+35416>>>>>>>>>//      }
+35416>>>>>>>>>//    }
+35416>>>>>>>>>//
+35416>>>>>>>>>// Examples:
+35416>>>>>>>>>//    Move (JsonAtPath(oJPath, hoJson, "foo.bar.baz[5][3].Mork[0][4][3]")) to hoObj
+35416>>>>>>>>>//
+35416>>>>>>>>>//    Get ValueAtPath of oJPath hJson "foo.bar.baz[5][3].Mork[0][4][3]" to sVal
+35416>>>>>>>>>//      (sVal = "Tim")
+35416>>>>>>>>>//
+35416>>>>>>>>>// In the first example the JSON object would be returned; if you then performed
+35416>>>>>>>>>// Move (JsonValue(hoObj)) to sVal you would get the same result as the second
+35416>>>>>>>>>// example - i.e. "Tim".
+35416>>>>>>>>>//
+35416>>>>>>>>>// NOTE: JSON is case-sensitive, so your path-strings must exactly match the
+35416>>>>>>>>>//       object names ("foo" is *not* "Foo") in the JSON file.
+35416>>>>>>>>>//
+35416>>>>>>>>>// Licence (MIT):
+35416>>>>>>>>>//
+35416>>>>>>>>>// Copyright 2020, Mike Peat, Unicorn InterGlobal Ltd.
+35416>>>>>>>>>//
+35416>>>>>>>>>// Permission is hereby granted, free of charge, to any person obtaining a copy
+35416>>>>>>>>>// of this software and associated documentation files (the "Software"), to deal
+35416>>>>>>>>>// in the Software without restriction, including without limitation the rights
+35416>>>>>>>>>// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+35416>>>>>>>>>// copies of the Software, and to permit persons to whom the Software is
+35416>>>>>>>>>// furnished to do so, subject to the following conditions:
+35416>>>>>>>>>//
+35416>>>>>>>>>// The above copyright notice and this permission notice shall be included in
+35416>>>>>>>>>// all copies or substantial portions of the Software.
+35416>>>>>>>>>//
+35416>>>>>>>>>// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+35416>>>>>>>>>// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+35416>>>>>>>>>// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+35416>>>>>>>>>// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+35416>>>>>>>>>// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+35416>>>>>>>>>// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+35416>>>>>>>>>// SOFTWARE.
+35416>>>>>>>>>//
+35416>>>>>>>>>//==============================================================================
+35416>>>>>>>>>// Added CountAtPath function to return the count of elements in an array at the
+35416>>>>>>>>>// passed path.
+35416>>>>>>>>>//==============================================================================
+35416>>>>>>>>>//
+35416>>>>>>>>>
+35416>>>>>>>>>Use UI
+35416>>>>>>>>>Use cJsonObject.pkg
+35416>>>>>>>>>
+35416>>>>>>>>>Class cJsonPath is a cObject
+35417>>>>>>>>>    
+35417>>>>>>>>>    Function ArrayHandle Handle hoJson String sPath Returns Handle
+35419>>>>>>>>>        Integer iLSBPos iRSBPos iIndex
+35419>>>>>>>>>        Handle  hoMemb hoObj
+35419>>>>>>>>>        
+35419>>>>>>>>>        If not hoJson ;            Function_Return 0
+35422>>>>>>>>>            
+35422>>>>>>>>>        If (sPath = "") Begin
+35424>>>>>>>>>            Send Destroy of hoJson
+35425>>>>>>>>>            Function_Return 0
+35426>>>>>>>>>        End
+35426>>>>>>>>>>
+35426>>>>>>>>>        
+35426>>>>>>>>>        Move (Pos("[", sPath)) to iLSBPos
+35427>>>>>>>>>        Move (Pos("]", sPath)) to iRSBPos
+35428>>>>>>>>>        
+35428>>>>>>>>>        If (not(iLSBPos) or ;            not(iRSBPos) or ;            (iLSBPos > iRSBPos) or ;            (iLSBPos <> 1)) Begin
+35430>>>>>>>>>            Send Destroy of hoJson
+35431>>>>>>>>>            Function_Return 0
+35432>>>>>>>>>        End
+35432>>>>>>>>>>
+35432>>>>>>>>>        
+35432>>>>>>>>>        Move (Mid(sPath, (iRSBPos - iLSBPos - 1), (iLSBPos + 1))) to iIndex
+35433>>>>>>>>>        
+35433>>>>>>>>>        If (MemberCount(hoJson) <= iIndex) Begin
+35435>>>>>>>>>            Send Destroy of hoJson
+35436>>>>>>>>>            Function_Return 0
+35437>>>>>>>>>        End
+35437>>>>>>>>>>
+35437>>>>>>>>>        
+35437>>>>>>>>>        Get MemberByIndex of hoJson iIndex to hoMemb
+35438>>>>>>>>>
+35438>>>>>>>>>        If (Length(Trim(sPath)) = iRSBPos) Begin // It ends here
+35440>>>>>>>>>            Send Destroy of hoJson
+35441>>>>>>>>>            Function_Return hoMemb
+35442>>>>>>>>>        End
+35442>>>>>>>>>>
+35442>>>>>>>>>
+35442>>>>>>>>>        Move (Right(sPath, (Length(sPath) - iRSBPos))) to sPath
+35443>>>>>>>>>        If (Left(sPath, 1) = ".") ;            Move (Replace(".", sPath, "")) to sPath
+35446>>>>>>>>>        Get ObjectHandle hoMemb sPath to hoObj
+35447>>>>>>>>>        Send Destroy of hoJson
+35448>>>>>>>>>        Function_Return hoObj
+35449>>>>>>>>>    End_Function
+35450>>>>>>>>>    
+35450>>>>>>>>>    Function ObjectHandle Handle hoJson String sPath Returns Handle
+35452>>>>>>>>>        Integer iLSBPos iDotPos iPos
+35452>>>>>>>>>        String  sMemb
+35452>>>>>>>>>        Handle  hoMemb hoObj
+35452>>>>>>>>>
+35452>>>>>>>>>        If not hoJson ;            Function_Return 0
+35455>>>>>>>>>        
+35455>>>>>>>>>        If (sPath = "") Begin
+35457>>>>>>>>>            Send Destroy of hoJson
+35458>>>>>>>>>            Function_Return 0
+35459>>>>>>>>>        End
+35459>>>>>>>>>>
+35459>>>>>>>>>            
+35459>>>>>>>>>        If (Left(sPath, 1) = "[") ;            Function_Return (ArrayHandle(Self, hoJson, sPath))
+35462>>>>>>>>>        
+35462>>>>>>>>>        Move (Pos(".", sPath))      to iDotPos
+35463>>>>>>>>>        Move (Pos("[", sPath))      to iLSBPos
+35464>>>>>>>>>        
+35464>>>>>>>>>        If (iLSBPos and iDotPos) ;            Move (iDotPos min iLSBPos)  to iPos
+35467>>>>>>>>>        Else If (iDotPos) ;            Move iDotPos                to iPos
+35471>>>>>>>>>        Else ;            Move iLSBPos                to iPos
+35473>>>>>>>>>        
+35473>>>>>>>>>        If not iPos Begin  // We are there!
+35475>>>>>>>>>            
+35475>>>>>>>>>            If (HasMember(hoJson, sPath)) Begin
+35477>>>>>>>>>                Get Member of hoJson sPath to hoMemb
+35478>>>>>>>>>                Send Destroy of hoJson
+35479>>>>>>>>>                Function_Return hoMemb
+35480>>>>>>>>>            End
+35480>>>>>>>>>>
+35480>>>>>>>>>            Else Begin
+35481>>>>>>>>>                Send Destroy of hoJson
+35482>>>>>>>>>                Function_Return 0
+35483>>>>>>>>>            End
+35483>>>>>>>>>>
+35483>>>>>>>>>        
+35483>>>>>>>>>        End
+35483>>>>>>>>>>
+35483>>>>>>>>>        
+35483>>>>>>>>>        Move (Left(sPath, (iPos - 1)))    to sMemb
+35484>>>>>>>>>        
+35484>>>>>>>>>        If (HasMember(hoJson, sMemb)) Begin
+35486>>>>>>>>>            Get Member of hoJson sMemb to hoMemb
+35487>>>>>>>>>            Send Destroy of hoJson
+35488>>>>>>>>>            Move (Right(sPath, (Length(sPath) - iPos + 1))) to sPath
+35489>>>>>>>>>            If (Left(sPath, 1) = ".") ;                Move (Replace(".", sPath, "")) to sPath
+35492>>>>>>>>>            Get ObjectHandle hoMemb sPath to hoObj
+35493>>>>>>>>>            Function_Return hoObj
+35494>>>>>>>>>        End
+35494>>>>>>>>>>
+35494>>>>>>>>>        
+35494>>>>>>>>>        Send Destroy of hoJson
+35495>>>>>>>>>        Function_Return 0
+35496>>>>>>>>>    End_Function
+35497>>>>>>>>>    
+35497>>>>>>>>>    Function JsonAtPath Handle hoJson String sPath Returns Handle
+35499>>>>>>>>>        Handle  hoObj
+35499>>>>>>>>>        UChar[] ucaJson
+35500>>>>>>>>>        Boolean bOK
+35500>>>>>>>>>        
+35500>>>>>>>>>        If (not(hoJson) or (sPath = "")) ;            Function_Return 0
+35503>>>>>>>>>        
+35503>>>>>>>>>        // Do this to "copy" hoJson to hoObj, so hoJson does not get destroyed
+35503>>>>>>>>>        // in the process
+35503>>>>>>>>>        Get StringifyUtf8 of hoJson to ucaJson
+35504>>>>>>>>>        Get CreateNamed (RefClass(cJsonObject)) "CopyJson" to hoObj
+35505>>>>>>>>>        Get ParseUtf8 of hoObj ucaJson to bOK
+35506>>>>>>>>>        Function_Return (ObjectHandle(Self, hoObj, sPath))
+35507>>>>>>>>>    End_Function
+35508>>>>>>>>>    
+35508>>>>>>>>>    Function ValueAtPath Handle hoJson String sPath Returns String
+35510>>>>>>>>>        Handle  hoObj
+35510>>>>>>>>>        String  sVal
+35510>>>>>>>>>        Integer iType
+35510>>>>>>>>>        
+35510>>>>>>>>>        Get JsonAtPath hoJson sPath to hoObj
+35511>>>>>>>>>
+35511>>>>>>>>>        If hoObj Begin
+35513>>>>>>>>>            Get JsonType of hoObj to iType
+35514>>>>>>>>>            
+35514>>>>>>>>>            If ((iType <> jsonTypeObject) and ;                (iType <> jsonTypeArray) and ;                (iType <> jsonTypeNull)) ;                Move (JsonValue(hoObj)) to sVal
+35517>>>>>>>>>            
+35517>>>>>>>>>            Send Destroy of hoObj
+35518>>>>>>>>>        End
+35518>>>>>>>>>>
+35518>>>>>>>>>        
+35518>>>>>>>>>        Function_Return sVal
+35519>>>>>>>>>    End_Function
+35520>>>>>>>>>    
+35520>>>>>>>>>    Function CountAtPath Handle hoJson String sPath Returns Integer
+35522>>>>>>>>>        Integer iCount
+35522>>>>>>>>>        
+35522>>>>>>>>>        Get JsonAtPath hoJson sPath to hoJson
+35523>>>>>>>>>        
+35523>>>>>>>>>        If not hoJson ;            Function_Return 0
+35526>>>>>>>>>        
+35526>>>>>>>>>        If (JsonType(hoJson) = jsonTypeArray) ;            Get MemberCount of hoJson to iCount
+35529>>>>>>>>>            
+35529>>>>>>>>>        Send Destroy of hoJson
+35530>>>>>>>>>        Function_Return iCount
+35531>>>>>>>>>    End_Function
+35532>>>>>>>>>
+35532>>>>>>>>>End_Class
+35533>>>>>>>Use cGeoHttpTransfer.pkg
+Including file: cGeoHttpTransfer.pkg    (C:\Projects\LeafletTest\AppSrc\cGeoHttpTransfer.pkg)
+35533>>>>>>>>>Use cHttpTransfer.pkg
+35533>>>>>>>>>
+35533>>>>>>>>>Class cGeoHttpTransfer is a cHttpTransfer
+35534>>>>>>>>>    
+35534>>>>>>>>>    Procedure Construct_Object
+35536>>>>>>>>>        Forward Send Construct_Object
+35538>>>>>>>>>        
+35538>>>>>>>>>        Property UChar[] pucaData
+35539>>>>>>>>>        Property String  psContentType
+35540>>>>>>>>>        
+35540>>>>>>>>>        // Make these the defaults, override in object if different
+35540>>>>>>>>>        Set piRemotePort    to 443
+35541>>>>>>>>>        Set peTransferFlags to ifSecure        
+35542>>>>>>>>>    End_Procedure
+35543>>>>>>>>>    
+35543>>>>>>>>>    Procedure OnDataReceived String sContentType String sData
+35545>>>>>>>>>        UChar[] ucaData
+35546>>>>>>>>>        
+35546>>>>>>>>>        Get pucaData to ucaData
+35547>>>>>>>>>        Move (AppendArray(ucaData, StringToUCharArray(sData))) to ucaData
+35548>>>>>>>>>        Set pucaData to ucaData
+35549>>>>>>>>>    End_Procedure
+35550>>>>>>>>>    
+35550>>>>>>>>>    Procedure Reset
+35552>>>>>>>>>        UChar[] empty
+35553>>>>>>>>>        
+35553>>>>>>>>>        Set psContentType   to ""
+35554>>>>>>>>>        Set pucaData        to empty
+35555>>>>>>>>>        Send ClearHeaders
+35556>>>>>>>>>    End_Procedure
+35557>>>>>>>>>        
+35557>>>>>>>>>End_Class
+35558>>>>>>>Use cGeocodeHost.pkg
+Including file: cGeocodeHost.pkg    (C:\Projects\LeafletTest\AppSrc\cGeocodeHost.pkg)
+35558>>>>>>>>>Use UI
+35558>>>>>>>>>
+35558>>>>>>>>>Class cGeocodeHost is a cObject
+35559>>>>>>>>>    
+35559>>>>>>>>>    Procedure Construct_Object
+35561>>>>>>>>>        Forward Send Construct_Object
+35563>>>>>>>>>        
+35563>>>>>>>>>        Property String[] pasConnectorIDs
+35564>>>>>>>>>        Property String[] pasConnectorNames
+35565>>>>>>>>>        Property Handle[] pahConnectorObjects
+35566>>>>>>>>>    End_Procedure
+35567>>>>>>>>>    
+35567>>>>>>>>>    Procedure RegisterGeocodeConnector Handle hoObject String sID String sName
+35569>>>>>>>>>        String[] asIDs asNames
+35571>>>>>>>>>        Handle[] ahObjs
+35572>>>>>>>>>        Integer  iIdx
+35572>>>>>>>>>        
+35572>>>>>>>>>        Get pahConnectorObjects     to ahObjs
+35573>>>>>>>>>        
+35573>>>>>>>>>        Move (SearchArray(hoObject, ahObjs)) to iIdx
+35574>>>>>>>>>        
+35574>>>>>>>>>        If (iIdx = -1) Begin  // Not already registered
+35576>>>>>>>>>            Move (SizeOfArray(ahObjs)) to iIdx
+35577>>>>>>>>>            Get pasConnectorIDs     to asIDs
+35578>>>>>>>>>            Get pasConnectorNames   to asNames
+35579>>>>>>>>>            
+35579>>>>>>>>>            Move hoObject           to ahObjs[iIdx]
+35580>>>>>>>>>            Move sID                to asIDs[iIdx]
+35581>>>>>>>>>            Move sName              to asNames[iIdx]
+35582>>>>>>>>>            
+35582>>>>>>>>>            Set pasConnectorIDs     to asIDs
+35583>>>>>>>>>            Set pasConnectorNames   to asNames
+35584>>>>>>>>>            Set pahConnectorObjects to ahObjs
+35585>>>>>>>>>        End
+35585>>>>>>>>>>
+35585>>>>>>>>>        
+35585>>>>>>>>>    End_Procedure
+35586>>>>>>>>>    
+35586>>>>>>>>>    Function ConnectorObjectFromID String sID Returns Handle
+35588>>>>>>>>>        String[] asIDs
+35589>>>>>>>>>        Handle[] ahObjs
+35590>>>>>>>>>        Integer  iIdx
+35590>>>>>>>>>        
+35590>>>>>>>>>        Get pasConnectorIDs to asIDs
+35591>>>>>>>>>        
+35591>>>>>>>>>        Move (SearchArray(sID, asIDs)) to iIDx
+35592>>>>>>>>>        
+35592>>>>>>>>>        If (iIdx = -1) ;            Function_Return 0
+35595>>>>>>>>>
+35595>>>>>>>>>        Get pahConnectorObjects to ahObjs        
+35596>>>>>>>>>        Function_Return ahObjs[iIdx]
+35597>>>>>>>>>    End_Function
+35598>>>>>>>>>
+35598>>>>>>>>>End_Class
+35599>>>>>>>
+35599>>>>>>>Class cGeocodeConnector is a cObject
+35600>>>>>>>    
+35600>>>>>>>    Procedure Construct_Object
+35602>>>>>>>        Forward Send Construct_Object
+35604>>>>>>>
+35604>>>>>>>        Property String     psName
+35605>>>>>>>        Property String     psID
+35606>>>>>>>        Property String     psHost
+35607>>>>>>>        Property String     psPath
+35608>>>>>>>        Property String     psKey
+35609>>>>>>>        Property String     psError
+35610>>>>>>>        Property Number     pnLat
+35611>>>>>>>        Property Number     pnLng
+35612>>>>>>>        Property String     psMarker
+35613>>>>>>>        Property Integer    piZoom          12
+35614>>>>>>>        Property Integer    piMaxZoom       22
+35615>>>>>>>        Property String     psDisplayName
+35616>>>>>>>        Property String     psWebSite
+35617>>>>>>>        Property Boolean    pbFitMap True
+35618>>>>>>>        
+35618>>>>>>>        Property String     psQuery
+35619>>>>>>>        
+35619>>>>>>>        Object oHttp is a cGeoHttpTransfer
+35621>>>>>>>            Set piRemotePort    to rpHttpSSL
+35622>>>>>>>            Set peTransferFlags to ifSecure
+35623>>>>>>>        End_Object
+35624>>>>>>>        
+35624>>>>>>>        Object oJPath is a cJsonPath
+35626>>>>>>>        End_Object
+35627>>>>>>>        
+35627>>>>>>>    End_Procedure
+35628>>>>>>>    
+35628>>>>>>>    Function CallPath String sPath String sKey String sQuery Returns String
+35630>>>>>>>        Function_Return (sPath + "?" + sKey + "&" + sQuery)
+35631>>>>>>>    End_Function
+35632>>>>>>>    
+35632>>>>>>>    Function DoGeoQuery String sQuery Returns Handle
+35634>>>>>>>        Boolean bOK
+35634>>>>>>>        Integer iStat
+35634>>>>>>>        Handle  hoResp
+35634>>>>>>>        String  sCall
+35634>>>>>>>        
+35634>>>>>>>        Set psQuery to sQuery
+35635>>>>>>>        
+35635>>>>>>>        Send Reset of oHttp
+35636>>>>>>>        Set pnLat to 100 // Invalid latitude
+35637>>>>>>>        Set psError to ""
+35638>>>>>>>        
+35638>>>>>>>        Move (CallPath(Self, psPath(Self), psKey(Self), sQuery)) to sCall
+35639>>>>>>>        
+35639>>>>>>>        Get HTTPGetRequest of oHttp sCall to bOK
+35640>>>>>>>        
+35640>>>>>>>        If bOK Begin
+35642>>>>>>>            Get ResponseStatusCode of oHttp to iStat
+35643>>>>>>>            
+35643>>>>>>>            If ((iStat >=200) and (iStat < 300)) Begin
+35645>>>>>>>                Get Create (RefClass(cJsonObject)) to hoResp
+35646>>>>>>>                Set peWhiteSpace of hoResp to jpWhitespace_Pretty
+35647>>>>>>>                Set pbEscapeForwardSlash of hoResp to False
+35648>>>>>>>                Get ParseUtf8 of hoResp (pucaData(oHttp(Self))) to bOK
+35649>>>>>>>                
+35649>>>>>>>                If bOK Begin
+35651>>>>>>>                    Send ExtractData hoResp
+35652>>>>>>>                    Function_Return hoResp
+35653>>>>>>>                End
+35653>>>>>>>>
+35653>>>>>>>                Else Begin
+35654>>>>>>>                    Set psError to ("JSON Error -" * psParseError(hoResp))
+35655>>>>>>>                    Send Destroy of hoResp
+35656>>>>>>>                End
+35656>>>>>>>>
+35656>>>>>>>                
+35656>>>>>>>            End
+35656>>>>>>>>
+35656>>>>>>>            Else ;                Set psError to ("HTTP Status" * String(iStat))
+35658>>>>>>>        End
+35658>>>>>>>>
+35658>>>>>>>        Else ;            Set psError to "HTTP request failed"
+35660>>>>>>>        
+35660>>>>>>>        Function_Return 0
+35661>>>>>>>    End_Function
+35662>>>>>>>    
+35662>>>>>>>    Function FreeQuery String sQuery Returns Handle
+35664>>>>>>>        Set psError to "Not implemented"
+35665>>>>>>>        Function_Return 0
+35666>>>>>>>    End_Function
+35667>>>>>>>    
+35667>>>>>>>    Function StructuredQuery String[] asParams Returns Handle
+35669>>>>>>>        Set psError to "Not implemented"
+35670>>>>>>>        Function_Return 0
+35671>>>>>>>    End_Function
+35672>>>>>>>    
+35672>>>>>>>    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+35674>>>>>>>        Set psError to "Not implemented"
+35675>>>>>>>        Function_Return 0
+35676>>>>>>>    End_Function
+35677>>>>>>>    
+35677>>>>>>>    Procedure ExtractData Handle hoJson
+35679>>>>>>>    End_Procedure
+35680>>>>>>>    
+35680>>>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+35682>>>>>>>        Send GeoContributor of hoMap (psName(Self)) (psWebSite(Self)) "GeoLocation" True
+35683>>>>>>>        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))        
+35684>>>>>>>    End_Procedure
+35685>>>>>>>    
+35685>>>>>>>    Procedure PlaceMarker Handle hoMap String sMarker
+35687>>>>>>>        Number nLat nLng
+35687>>>>>>>        
+35687>>>>>>>        If not hoMap ;            Procedure_Return
+35690>>>>>>>            
+35690>>>>>>>        Get pnLat to nLat
+35691>>>>>>>        Get pnLng to nLng
+35692>>>>>>>        
+35692>>>>>>>        If (nLat = 100) ;  // Invalid latitude            Procedure_Return
+35695>>>>>>>        
+35695>>>>>>>        Send DrawMarker of hoMap nLat nLng (psDisplayName(Self)) sMarker False
+35696>>>>>>>    End_Procedure
+35697>>>>>>>    
+35697>>>>>>>    Procedure End_Construct_Object
+35699>>>>>>>        Forward Send End_Construct_Object
+35701>>>>>>>        
+35701>>>>>>>        Set psRemoteHost of oHttp to (psHost(Self))
+35702>>>>>>>
+35702>>>>>>>        If (ObjectClass(Parent(Self)) = RefClass(cGeocodeHost)) ;            Delegate Send RegisterGeocodeConnector Self (psID(Self)) (psName(Self))
+35706>>>>>>>    End_Procedure
+35707>>>>>>>
+35707>>>>>>>End_Class
+35708>>>>>
+35708>>>>>Class cLocationIQConnector is a cGeocodeConnector
+35709>>>>>    
+35709>>>>>    Procedure Construct_Object
+35711>>>>>        Forward Send Construct_Object
+35713>>>>>        
+35713>>>>>        Set psHost      to "eu1.locationiq.com"
+35714>>>>>        Set psPath      to "v1/search.php"
+35715>>>>>        Set psKey       to (Config("tokens.locationIQKey"))
+35716>>>>>        Set psName      to "Location IQ"
+35717>>>>>        Set psID        to "LOCIQ"
+35718>>>>>        Set psWebSite   to "https://locationiq.com/"
+35719>>>>>        
+35719>>>>>        Property Number[] panBoundingBox
+35720>>>>>    End_Procedure
+35721>>>>>    
+35721>>>>>    Function FreeQuery String sQuery Returns Handle
+35723>>>>>        Handle hoJson
+35723>>>>>        
+35723>>>>>        Move (Replaces(" ", sQuery, "%20")) to sQuery
+35724>>>>>        Move ("q=" + sQuery)                to sQuery
+35725>>>>>        Get DoGeoQuery sQuery               to hoJson
+35726>>>>>        
+35726>>>>>        Function_Return hoJson
+35727>>>>>    End_Function
+35728>>>>>    
+35728>>>>>    Function StructuredQuery String[] asParams Returns Handle
+35730>>>>>        String   sQuery
+35730>>>>>        String[] asQuery
+35731>>>>>        Handle   hoJson
+35731>>>>>        
+35731>>>>>        If (asParams[0] <> "") ;            Move ("country="    + asParams[0])              to asQuery[SizeOfArray(asQuery)]
+35734>>>>>        If (asParams[1] <> "") ;            Move ("postalcode=" + asParams[1])              to asQuery[SizeOfArray(asQuery)]
+35737>>>>>        If (asParams[2] <> "") ;            Move ("state="      + asParams[2])              to asQuery[SizeOfArray(asQuery)]
+35740>>>>>        If (asParams[3] <> "") ;            Move ("county="     + asParams[3])              to asQuery[SizeOfArray(asQuery)]
+35743>>>>>        If (asParams[4] <> "") ;            Move ("city="       + asParams[4])              to asQuery[SizeOfArray(asQuery)]
+35746>>>>>        If (asParams[6] <> "") ;            Move (asParams[6] * asParams[5])                to asParams[5]
+35749>>>>>        If (asParams[5] <> "") ;            Move ("street="     + asParams[5])              to asQuery[SizeOfArray(asQuery)]
+35752>>>>>
+35752>>>>>        Move (StrJoinFromArray(asQuery, "&"))   to sQuery
+35753>>>>>        Move (Replaces(" ", sQuery, "%20"))     to sQuery
+35754>>>>>        Get DoGeoQuery sQuery                   to hoJson
+35755>>>>>        
+35755>>>>>        Function_Return hoJson
+35756>>>>>    End_Function
+35757>>>>>    
+35757>>>>>    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+35759>>>>>        String  sQuery
+35759>>>>>        Handle  hoJson
+35759>>>>>        
+35759>>>>>        Move ("postalcode=" + sPostcode + "&countrycodes=" + sCountry)  to sQuery
+35760>>>>>        Move (Replaces(" ", sQuery, "%20"))                             to sQuery
+35761>>>>>        Get DoGeoQuery sQuery                                           to hoJson
+35762>>>>>        
+35762>>>>>        Function_Return hoJson
+35763>>>>>    End_Function
+35764>>>>>    
+35764>>>>>    Function CallPath String sPath String sKey String sQuery Returns String
+35766>>>>>        String sCallPath
+35766>>>>>        
+35766>>>>>        Forward Get CallPath sPath sKey sQuery to sCallPath
+35768>>>>>        
+35768>>>>>        Move (sCallPath + "&format=json") to sCallPath
+35769>>>>>        Function_Return sCallPath
+35770>>>>>    End_Function
+35771>>>>>    
+35771>>>>>    Procedure ExtractData Handle hoJson
+35773>>>>>        Number nLat nLng
+35773>>>>>        Handle hoBox
+35773>>>>>        Number[] anBox
+35774>>>>>        
+35774>>>>>        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "[0].lat"))
+35775>>>>>        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "[0].lon"))
+35776>>>>>        
+35776>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "[0].boundingbox[0]")) to anBox[0]
+35777>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "[0].boundingbox[1]")) to anBox[1]
+35778>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "[0].boundingbox[2]")) to anBox[2]
+35779>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "[0].boundingbox[3]")) to anBox[3]
+35780>>>>>        Set panBoundingBox to anBox
+35781>>>>>
+35781>>>>>        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "[0].display_name"))
+35782>>>>>    End_Procedure
+35783>>>>>    
+35783>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+35785>>>>>        Number[]  anBox
+35786>>>>>        stPolygon tBox
+35786>>>>>        stPolygon tBox
+35786>>>>>        String    sName
+35786>>>>>        
+35786>>>>>        If not hoMap ;            Procedure_Return
+35789>>>>>        If (pnLat(Self) = 100) ;            Procedure_Return
+35792>>>>>
+35792>>>>>        Forward Send DrawMap hoJson hoMap
+35794>>>>>
+35794>>>>>        // ToDo: work out correct zoom from bounding box maybe?
+35794>>>>>        Get panBoundingBox to anBox
+35795>>>>>        
+35795>>>>>        If (SizeOfArray(anBox) = 4) Begin
+35797>>>>>            Move anBox[0]   to tBox.aPoints[0][0]
+35798>>>>>            Move anBox[2]   to tBox.aPoints[0][1]
+35799>>>>>            
+35799>>>>>            Move anBox[1]   to tBox.aPoints[1][0]
+35800>>>>>            Move anBox[2]   to tBox.aPoints[1][1]
+35801>>>>>            
+35801>>>>>            Move anBox[1]   to tBox.aPoints[2][0]
+35802>>>>>            Move anBox[3]   to tBox.aPoints[2][1]
+35803>>>>>            
+35803>>>>>            Move anBox[0]   to tBox.aPoints[3][0]
+35804>>>>>            Move anBox[3]   to tBox.aPoints[3][1]
+35805>>>>>            
+35805>>>>>            Move (Config("defaults.polygon.lineColor"))     to tBox.sLineColor
+35806>>>>>            Move (Config("defaults.polygon.lineWeight"))    to tBox.iLineWeight
+35807>>>>>            Move (Config("defaults.polygon.lineOpacity"))   to tBox.nLineOpacity
+35808>>>>>            Move (Config("defaults.polygon.fillColor"))     to tBox.sFillColor
+35809>>>>>            Move (Config("defaults.polygon.fillOpacity"))   to tBox.nFillOpacity
+35810>>>>>            
+35810>>>>>            Move True to tBox.bStroke
+35811>>>>>            Move (pbFitMap(Self)) to tBox.bFitMap
+35812>>>>>            
+35812>>>>>            Send DrawPolygon of hoMap tBox
+35813>>>>>        End
+35813>>>>>>
+35813>>>>>        
+35813>>>>>    End_Procedure
+35814>>>>>    
+35814>>>>>End_Class
+35815>>>
+35815>>>Object oSimpleMapTest is a cWebView
+35817>>>    Set psCaption to "Simple Map Test"
+35818>>>    
+35818>>>    Delegate Set phoDefaultView to Self
+35820>>>
+35820>>>    Object oLocIQ is a cLocationIQConnector
+35822>>>        Set pbFitMap to False
+35823>>>    End_Object
+35824>>>
+35824>>>    Object oWebMainPanel is a cWebPanel
+35826>>>        Set piColumnCount to 12
+35827>>>        
+35827>>>        Object oLocation is a cWebForm
+35829>>>            Set piColumnSpan to 11
+35830>>>            Set psLabel to "Location:"
+35831>>>            Set peLabelAlign to alignRight
+35832>>>            Set piLabelOffset to 80
+35833>>>            Set psValue to "CPH Conference, Tietgensgade 65, 1704 Copenhagen, Denmark"
+35834>>>        End_Object
+35835>>>
+35835>>>        Object oSend is a cWebButton
+35837>>>            Set piColumnSpan to 1
+35838>>>            Set piColumnIndex to 11
+35839>>>            Set psCaption to "Send"
+35840>>>        
+35840>>>            Procedure OnClick
+35843>>>                String sLoc
+35843>>>                Handle hoJson
+35843>>>                
+35843>>>                WebGet psValue of oLocation     to sLoc
+35846>>>                Get FreeQuery of oLocIQ sLoc    to hoJson
+35847>>>                
+35847>>>                If hoJson Begin
+35849>>>                    Send DrawMap of oLocIQ hoJson (oMap(Self))
+35850>>>                    Send PlaceMarker of oLocIQ (oMap(Self)) ""
+35851>>>                    Send Destroy of hoJson
+35852>>>                End
+35852>>>>
+35852>>>                Else ;                    Send ShowInfoBox (psError(oLocIQ)) "Request Failed"
+35854>>>                
+35854>>>            End_Procedure
+35855>>>            
+35855>>>        End_Object
+35856>>>
+35856>>>        Object oWebSpacer1 is a cWebSpacer
+35858>>>        End_Object
+35859>>>        
+35859>>>        Object oMap is a cLeafletMappingControl
+35861>>>        End_Object
+35862>>>        
+35862>>>    End_Object 
+35863>>>
+35863>>>End_Object
+35864>    Use TestGeoMap.wo
+Including file: TestGeoMap.wo    (C:\Projects\LeafletTest\AppSrc\TestGeoMap.wo)
+35864>>>Use cWebView.pkg
+35864>>>Use cWebPanel.pkg
+35864>>>Use cWebForm.pkg
+35864>>>Use cWebCheckBox.pkg
+35864>>>Use cWebCombo.pkg
+35864>>>Use cWebSpacer.pkg
+35864>>>Use cWebButton.pkg
+35864>>>Use cWebHorizontalLine.pkg
+35864>>>
+35864>>>Use cLeafletMappingControl.pkg
+35864>>>Use cGeocodeHost.pkg
+35864>>>
+35864>>>Use GeoConnectors\cLocationIQConnector.pkg
+35864>>>Use GeoConnectors\cMapQuestOpenConnector.pkg
+Including file: GeoConnectors\cMapQuestOpenConnector.pkg    (C:\Projects\LeafletTest\AppSrc\GeoConnectors\cMapQuestOpenConnector.pkg)
+35864>>>>>Use cGeocodeConnector.pkg
+35864>>>>>
+35864>>>>>Class cMapQuestOpenConnector is a cGeocodeConnector
+35865>>>>>    
+35865>>>>>    Procedure Construct_Object
+35867>>>>>        Forward Send Construct_Object
+35869>>>>>
+35869>>>>>        Set psHost      to "open.mapquestapi.com"
+35870>>>>>        Set psPath      to "geocoding/v1/address"
+35871>>>>>        Set psKey       to (Config("tokens.mapQuestOpenKey"))
+35872>>>>>        Set psName      to "Open MapQuest"
+35873>>>>>        Set psID        to "OMAPQ"
+35874>>>>>        Set psWebSite   to "https://developer.mapquest.com/"
+35875>>>>>        
+35875>>>>>        Property Number[] panBoundingBox
+35876>>>>>    End_Procedure
+35877>>>>>    
+35877>>>>>    Function FreeQuery String sQuery Returns Handle
+35879>>>>>        Handle hoJson
+35879>>>>>        
+35879>>>>>        Move (Replaces(" ", sQuery, "%20")) to sQuery
+35880>>>>>        Move ("location=" + sQuery)         to sQuery
+35881>>>>>        Get DoGeoQuery sQuery               to hoJson
+35882>>>>>        
+35882>>>>>        Function_Return hoJson
+35883>>>>>    End_Function
+35884>>>>>    
+35884>>>>>    Function StructuredQuery String[] asParams Returns Handle
+35886>>>>>        String[] asQuery
+35887>>>>>        String   sQuery
+35887>>>>>        Handle   hoJson
+35887>>>>>        Integer  i iMax
+35887>>>>>        
+35887>>>>>        Move (SizeOfArray(asParams) - 1) to iMax
+35888>>>>>        
+35888>>>>>        For i from 0 to iMax
+35894>>>>>>
+35894>>>>>            Move (Replaces(" ", asParams[i], "+")) to asParams[i]
+35895>>>>>        Loop        
+35896>>>>>>
+35896>>>>>
+35896>>>>>        If (asParams[0] <> "") ;            Move ("country=" + asParams[0])                 to asQuery[SizeOfArray(asQuery)]
+35899>>>>>        If (asParams[1] <> "") ;            Move ("postalCode=" + asParams[1])              to asQuery[SizeOfArray(asQuery)]
+35902>>>>>        If (asParams[2] <> "") ;            Move ("state=" + asParams[2])                   to asQuery[SizeOfArray(asQuery)]
+35905>>>>>        If (asParams[3] <> "") ;            Move ("county=" + asParams[3])                  to asQuery[SizeOfArray(asQuery)]
+35908>>>>>        If (asParams[4] <> "") ;            Move ("city=" + asParams[4])                    to asQuery[SizeOfArray(asQuery)]
+35911>>>>>        If (asParams[6] <> "") ;            Move (asParams[6] * asParams[5])                to asParams[5]
+35914>>>>>        If (asParams[5] <> "") ;            Move ("street=" + asParams[5])                  to asQuery[SizeOfArray(asQuery)]
+35917>>>>>        
+35917>>>>>        Move (StrJoinFromArray(asQuery, "&"))   to sQuery
+35918>>>>>        Move (Replaces(" ", sQuery, "%20"))     to sQuery
+35919>>>>>        Get DoGeoQuery sQuery to hoJson
+35920>>>>>        
+35920>>>>>        Function_Return hoJson
+35921>>>>>    End_Function
+35922>>>>>    
+35922>>>>>    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+35924>>>>>        String sQuery
+35924>>>>>        Handle hoJson
+35924>>>>>        
+35924>>>>>        Move ("postalCode=" + sPostcode + "&" + "country=" + sCountry) to sQuery
+35925>>>>>        Move (Replaces(" ", sQuery, "%20")) to sQuery
+35926>>>>>        Get DoGeoQuery sQuery to hoJson
+35927>>>>>        
+35927>>>>>        Function_Return hoJson
+35928>>>>>    End_Function
+35929>>>>>    
+35929>>>>>    Procedure ExtractData Handle hoJson
+35931>>>>>        Number nLat nLng
+35931>>>>>        Handle hoBox
+35931>>>>>        Number[] anBox
+35932>>>>>        String sVal sAddr
+35932>>>>>        
+35932>>>>>        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].latLng.lat"))
+35933>>>>>        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].latLng.lng"))
+35934>>>>>        
+35934>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].street")) to sVal            
+35935>>>>>        If (sVal <> "") ;            Move (sAddr + If((Length(sAddr)), ", ", "") + sVal) to sAddr
+35938>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].adminArea6")) to sVal
+35939>>>>>        If (sVal <> "") ;            Move (sAddr + If((Length(sAddr)), ", ", "") + sVal) to sAddr
+35942>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].adminArea5")) to sVal
+35943>>>>>        If (sVal <> "") ;            Move (sAddr + If((Length(sAddr)), ", ", "") + sVal) to sAddr
+35946>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].adminArea4")) to sVal
+35947>>>>>        If (sVal <> "") ;            Move (sAddr + If((Length(sAddr)), ", ", "") + sVal) to sAddr
+35950>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].adminArea3")) to sVal
+35951>>>>>        If (sVal <> "") ;            Move (sAddr + If((Length(sAddr)), ", ", "") + sVal) to sAddr
+35954>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].adminArea2")) to sVal
+35955>>>>>        If (sVal <> "") ;            Move (sAddr + If((Length(sAddr)), ", ", "") + sVal) to sAddr
+35958>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].postalCode")) to sVal
+35959>>>>>        If (sVal <> "") ;            Move (sAddr + If((Length(sAddr)), ", ", "") + sVal) to sAddr
+35962>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "results[0].locations[0].adminArea1")) to sVal
+35963>>>>>        If (sVal <> "") ;            Move (sAddr + If((Length(sAddr)), ", ", "") + sVal) to sAddr
+35966>>>>>        
+35966>>>>>        Set psDisplayName to sAddr
+35967>>>>>    End_Procedure
+35968>>>>>    
+35968>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+35970>>>>>        Number[]  anBox
+35971>>>>>        stPolygon tBox
+35971>>>>>        stPolygon tBox
+35971>>>>>        String    sName
+35971>>>>>        
+35971>>>>>        If not hoMap ;            Procedure_Return
+35974>>>>>        If (pnLat(Self) = 100) ;            Procedure_Return
+35977>>>>>        
+35977>>>>>        Forward Send DrawMap hoJson hoMap
+35979>>>>>
+35979>>>>>        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))
+35980>>>>>    End_Procedure
+35981>>>>>
+35981>>>>>End_Class
+35982>>>Use GeoConnectors\cHereConnector.pkg
+Including file: GeoConnectors\cHereConnector.pkg    (C:\Projects\LeafletTest\AppSrc\GeoConnectors\cHereConnector.pkg)
+35982>>>>>Use cGeocodeConnector.pkg
+35982>>>>>
+35982>>>>>Class cHereConnector is a cGeocodeConnector
+35983>>>>>    
+35983>>>>>    Procedure Construct_Object
+35985>>>>>        Forward Send Construct_Object
+35987>>>>>        
+35987>>>>>        Set psHost      to "geocoder.ls.hereapi.com"
+35988>>>>>        Set psPath      to "6.2/geocode.json"
+35989>>>>>        Set psKey       to (Config("tokens.hereKey"))
+35990>>>>>        Set psName      to "Here Geocoding"
+35991>>>>>        Set psID        to "HERE"
+35992>>>>>        Set psWebSite   to "https://www.here.com/"
+35993>>>>>        
+35993>>>>>        Property Number[] panBoundingBox
+35994>>>>>    End_Procedure
+35995>>>>>    
+35995>>>>>    Function FreeQuery String sQuery Returns Handle
+35997>>>>>        Handle  hoJson
+35997>>>>>        Boolean bOK
+35997>>>>>        
+35997>>>>>        Move (Replaces(" ", sQuery, "%20")) to sQuery
+35998>>>>>        Move ("searchtext=" + sQuery)       to sQuery
+35999>>>>>        Get DoGeoQuery sQuery               to hoJson
+36000>>>>>        
+36000>>>>>        Function_Return hoJson
+36001>>>>>    End_Function
+36002>>>>>    
+36002>>>>>    Function StructuredQuery String[] asParams Returns Handle
+36004>>>>>        String   sQuery
+36004>>>>>        String[] asQuery
+36005>>>>>        Handle   hoJson
+36005>>>>>        
+36005>>>>>        If (asParams[6] <> "") ;            Move ("housenumber=" + asParams[6]) to asQuery[SizeOfArray(asQuery)]
+36008>>>>>        If (asParams[5] <> "") ;            Move ("street="      + asParams[5]) to asQuery[SizeOfArray(asQuery)]
+36011>>>>>        If (asParams[4] <> "") ;            Move ("city="        + asParams[4]) to asQuery[SizeOfArray(asQuery)]
+36014>>>>>        If (asParams[0] <> "") ;            Move ("country="     + asParams[0]) to asQuery[SizeOfArray(asQuery)]
+36017>>>>>
+36017>>>>>        Move (StrJoinFromArray(asQuery, "&"))   to sQuery
+36018>>>>>        Move (Replaces(" ", sQuery, "%20"))     to sQuery
+36019>>>>>        Get DoGeoQuery sQuery                   to hoJson
+36020>>>>>        
+36020>>>>>        Function_Return hoJson
+36021>>>>>    End_Function
+36022>>>>>    
+36022>>>>>    Procedure ExtractData Handle hoJson
+36024>>>>>        Number[] anBox
+36025>>>>>        
+36025>>>>>        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "Response.View[0].Result[0].Location.DisplayPosition.Latitude"))
+36026>>>>>        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "Response.View[0].Result.[0]Location.DisplayPosition.Longitude"))
+36027>>>>>        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "Response.View[0].Result[0].Location.Address.Label"))
+36028>>>>>        
+36028>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "Response.View[0].Result[0].Location.MapView.TopLeft.Latitude"))         to anBox[0]
+36029>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "Response.View[0].Result[0].Location.MapView.TopLeft.Longitude"))        to anBox[1]
+36030>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "Response.View[0].Result[0].Location.MapView.BottomRight.Latitude"))     to anBox[2]
+36031>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "Response.View[0].Result[0].Location.MapView.BottomRight.Longitude"))    to anBox[3]
+36032>>>>>        
+36032>>>>>        Set panBoundingBox to anBox
+36033>>>>>    End_Procedure
+36034>>>>>    
+36034>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+36036>>>>>        Number[]  anBox
+36037>>>>>        stPolygon tBox
+36037>>>>>        stPolygon tBox
+36037>>>>>        String    sName
+36037>>>>>        
+36037>>>>>        If not hoMap ;            Procedure_Return
+36040>>>>>        If (pnLat(Self) = 100) ;            Procedure_Return
+36043>>>>>
+36043>>>>>        // ToDo: work out correct zoom from bounding box maybe?
+36043>>>>>        Forward Send DrawMap hoJson hoMap
+36045>>>>>
+36045>>>>>        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))
+36046>>>>>        
+36046>>>>>        Get panBoundingBox to anBox
+36047>>>>>        
+36047>>>>>        If (SizeOfArray(anBox) = 4) Begin
+36049>>>>>            Move anBox[0]   to tBox.aPoints[0][0]
+36050>>>>>            Move anBox[1]   to tBox.aPoints[0][1]
+36051>>>>>            
+36051>>>>>            Move anBox[2]   to tBox.aPoints[1][0]
+36052>>>>>            Move anBox[1]   to tBox.aPoints[1][1]
+36053>>>>>            
+36053>>>>>            Move anBox[2]   to tBox.aPoints[2][0]
+36054>>>>>            Move anBox[3]   to tBox.aPoints[2][1]
+36055>>>>>            
+36055>>>>>            Move anBox[0]   to tBox.aPoints[3][0]
+36056>>>>>            Move anBox[3]   to tBox.aPoints[3][1]
+36057>>>>>            
+36057>>>>>            Move (Config("defaults.polygon.lineColor"))     to tBox.sLineColor
+36058>>>>>            Move (Config("defaults.polygon.lineWeight"))    to tBox.iLineWeight
+36059>>>>>            Move (Config("defaults.polygon.lineOpacity"))   to tBox.nLineOpacity
+36060>>>>>            Move (Config("defaults.polygon.fillColor"))     to tBox.sFillColor
+36061>>>>>            Move (Config("defaults.polygon.fillOpacity"))   to tBox.nFillOpacity
+36062>>>>>            
+36062>>>>>            Move True to tBox.bStroke
+36063>>>>>            Move (pbFitMap(Self)) to tBox.bFitMap
+36064>>>>>
+36064>>>>>            Send DrawPolygon of hoMap tBox
+36065>>>>>        End
+36065>>>>>>
+36065>>>>>        
+36065>>>>>    End_Procedure
+36066>>>>>    
+36066>>>>>End_Class
+36067>>>Use GeoConnectors\cPositionStackConnector.pkg
+Including file: GeoConnectors\cPositionStackConnector.pkg    (C:\Projects\LeafletTest\AppSrc\GeoConnectors\cPositionStackConnector.pkg)
+36067>>>>>Use cGeocodeConnector.pkg
+36067>>>>>
+36067>>>>>Class cPositionStackConnector is a cGeocodeConnector
+36068>>>>>    
+36068>>>>>    Procedure Construct_Object
+36070>>>>>        Forward Send Construct_Object
+36072>>>>>
+36072>>>>>        Set psHost      to "api.positionstack.com"
+36073>>>>>        Set psPath      to "v1/forward"
+36074>>>>>        Set psKey       to (Config("tokens.positionStackKey"))
+36075>>>>>        Set psName      to "Position Stack"
+36076>>>>>        Set psID        to "POSSTK"
+36077>>>>>        Set psWebSite   to "https://positionstack.com/"
+36078>>>>>        
+36078>>>>>        Property Number[] panBoundingBox
+36079>>>>>        
+36079>>>>>        // Position Stack free plan doesn't use HTTPS, so:
+36079>>>>>        Set piRemotePort    of oHttp to rpHttp
+36080>>>>>        Set peTransferFlags of oHttp to 0
+36081>>>>>    End_Procedure
+36082>>>>>    
+36082>>>>>    Function FreeQuery String sQuery Returns Handle
+36084>>>>>        Handle  hoJson
+36084>>>>>        Boolean bOK
+36084>>>>>        
+36084>>>>>        Move (Replaces(" ", sQuery, "%20")) to sQuery
+36085>>>>>        Move ("query=" + sQuery)            to sQuery
+36086>>>>>        Get DoGeoQuery sQuery               to hoJson
+36087>>>>>        
+36087>>>>>        Function_Return hoJson
+36088>>>>>    End_Function
+36089>>>>>    
+36089>>>>>    Function StructuredQuery String[] asParams Returns Handle
+36091>>>>>        String[] asQuery
+36092>>>>>        String   sQuery
+36092>>>>>        Handle   hoJson
+36092>>>>>        
+36092>>>>>        If (asParams[6] <> "") ;            Move (asParams[6] * asParams[5])    to asParams[5]
+36095>>>>>        If (asParams[5] <> "") ;                   Move asParams[5]                    to asQuery[SizeOfArray(asQuery)]
+36098>>>>>        If (asParams[4] <> "") ;            Move asParams[4]                    to asQuery[SizeOfArray(asQuery)]
+36101>>>>>        If (asParams[3] <> "") ;            Move asParams[3]                    to asQuery[SizeOfArray(asQuery)]
+36104>>>>>        If (asParams[2] <> "") ;            Move asParams[2]                    to asQuery[SizeOfArray(asQuery)]
+36107>>>>>        If (asParams[1] <> "") ;            Move asParams[1]                    to asQuery[SizeOfArray(asQuery)]
+36110>>>>>        If (asParams[0] <> "") ;            Move asParams[0]                    to asQuery[SizeOfArray(asQuery)]
+36113>>>>>        
+36113>>>>>        Move (StrJoinFromArray(asQuery, ", "))  to sQuery
+36114>>>>>        Move (Replaces(" ", sQuery, "%20"))     to sQuery
+36115>>>>>        Get DoGeoQuery ("query=" + sQuery)      to hoJson
+36116>>>>>        
+36116>>>>>        Function_Return hoJson
+36117>>>>>    End_Function
+36118>>>>>    
+36118>>>>>    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+36120>>>>>        String  sQuery
+36120>>>>>        Handle  hoJson
+36120>>>>>        
+36120>>>>>        Move ("query=" + sPostcode + ", " + sCountry)   to sQuery
+36121>>>>>        Move (Replaces(" ", sQuery, "%20"))     to sQuery
+36122>>>>>        Get DoGeoQuery sQuery                           to hoJson
+36123>>>>>        
+36123>>>>>        Function_Return hoJson
+36124>>>>>    End_Function
+36125>>>>>    
+36125>>>>>    Procedure ExtractData Handle hoJson
+36127>>>>>        Number nLat nLng
+36127>>>>>        Handle hoBox
+36127>>>>>        Number[] anBox
+36128>>>>>        
+36128>>>>>        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "data.[0].latitude"))
+36129>>>>>        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "data.[0].longitude"))
+36130>>>>>
+36130>>>>>        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "data.[0].label"))
+36131>>>>>    End_Procedure
+36132>>>>>    
+36132>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+36134>>>>>        Number[]  anBox
+36135>>>>>        stPolygon tBox
+36135>>>>>        stPolygon tBox
+36135>>>>>        String    sName
+36135>>>>>        
+36135>>>>>        If not hoMap ;            Procedure_Return
+36138>>>>>        If (pnLat(Self) = 100) ;            Procedure_Return
+36141>>>>>
+36141>>>>>        Forward Send DrawMap hoJson hoMap
+36143>>>>>
+36143>>>>>        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))
+36144>>>>>    End_Procedure
+36145>>>>>    
+36145>>>>>End_Class
+36146>>>Use GeoConnectors\cGeocodeIOConnector.pkg
+Including file: GeoConnectors\cGeocodeIOConnector.pkg    (C:\Projects\LeafletTest\AppSrc\GeoConnectors\cGeocodeIOConnector.pkg)
+36146>>>>>Use cGeocodeConnector.pkg
+36146>>>>>
+36146>>>>>Class cGeocodeIOConnector is a cGeocodeConnector
+36147>>>>>    
+36147>>>>>    Procedure Construct_Object
+36149>>>>>        Forward Send Construct_Object
+36151>>>>>        Set psHost      to "api.geocod.io"
+36152>>>>>        Set psPath      to "v1.6/geocode"
+36153>>>>>        Set psKey       to (Config("tokens.geocodeIOKey"))
+36154>>>>>        Set psName      to "Geocode IO"
+36155>>>>>        Set psID        to "GEOCODEIO"
+36156>>>>>        Set psWebSite   to "https://www.geocod.io/"
+36157>>>>>        
+36157>>>>>        Property Number[] panBoundingBox
+36158>>>>>        
+36158>>>>>        // Position Stack free plan doesn't use HTTPS, so:
+36158>>>>>        Set piRemotePort    of oHttp to rpHttp
+36159>>>>>        Set peTransferFlags of oHttp to 0
+36160>>>>>    End_Procedure
+36161>>>>>    
+36161>>>>>    Function FreeQuery String sQuery Returns Handle
+36163>>>>>        Handle  hoJson
+36163>>>>>        Boolean bOK
+36163>>>>>        
+36163>>>>>        Move (Replaces(" ", sQuery, "%20")) to sQuery
+36164>>>>>        Move ("q=" + sQuery)                to sQuery
+36165>>>>>        Get DoGeoQuery sQuery               to hoJson
+36166>>>>>        
+36166>>>>>        Function_Return hoJson
+36167>>>>>    End_Function
+36168>>>>>    
+36168>>>>>    Function StructuredQuery String[] asParams Returns Handle
+36170>>>>>        String[] asQuery
+36171>>>>>        String   sQuery
+36171>>>>>        Handle   hoJson
+36171>>>>>        
+36171>>>>>        If (asParams[6] <> "") ;        Move (asParams[6] * asParams[5])        to  asParams[5]
+36174>>>>>        If (asParams[5] <> "") ;            Move ("street=" + asParams[5])      to asQuery[SizeOfArray(asQuery)]
+36177>>>>>        If (asParams[4] <> "") ;            Move ("city=" + asParams[4])        to asQuery[SizeOfArray(asQuery)]
+36180>>>>>        If (asParams[2] <> "") ;            Move ("state=" + asParams[2])       to asQuery[SizeOfArray(asQuery)]
+36183>>>>>        If (asParams[1] <> "") ;            Move ("postal_code=" + asParams[1]) to asQuery[SizeOfArray(asQuery)]
+36186>>>>>        If (asParams[0] <> "") ;            Move ("country=" + asParams[0])     to asQuery[SizeOfArray(asQuery)]
+36189>>>>>        
+36189>>>>>        Move (StrJoinFromArray(asQuery, "&"))   to sQuery
+36190>>>>>        Move (Replaces(" ", sQuery, "%20"))     to sQuery
+36191>>>>>        Get DoGeoQuery sQuery                   to hoJson
+36192>>>>>        
+36192>>>>>        Function_Return hoJson
+36193>>>>>    End_Function
+36194>>>>>    
+36194>>>>>    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+36196>>>>>        String  sQuery
+36196>>>>>        Handle  hoJson
+36196>>>>>        
+36196>>>>>        Move ("postal_code=" + sPostcode + "&country=" + sCountry)  to sQuery
+36197>>>>>        Move (Replaces(" ", sQuery, "%20"))     to sQuery
+36198>>>>>        Get DoGeoQuery sQuery                                       to hoJson
+36199>>>>>        
+36199>>>>>        Function_Return hoJson
+36200>>>>>    End_Function
+36201>>>>>    
+36201>>>>>    Procedure ExtractData Handle hoJson
+36203>>>>>        Number nLat nLng
+36203>>>>>        Handle hoBox
+36203>>>>>        Number[] anBox
+36204>>>>>        
+36204>>>>>        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "results.[0].location.lat"))
+36205>>>>>        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "results.[0].location.lng"))
+36206>>>>>
+36206>>>>>        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "results.[0].formatted_address"))
+36207>>>>>    End_Procedure
+36208>>>>>    
+36208>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+36210>>>>>        Number[]  anBox
+36211>>>>>        stPolygon tBox
+36211>>>>>        stPolygon tBox
+36211>>>>>        String    sName
+36211>>>>>        
+36211>>>>>        If not hoMap ;            Procedure_Return
+36214>>>>>        If (pnLat(Self) = 100) ;            Procedure_Return
+36217>>>>>
+36217>>>>>        Forward Send DrawMap hoJson hoMap
+36219>>>>>
+36219>>>>>        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))
+36220>>>>>    End_Procedure
+36221>>>>>    
+36221>>>>>End_Class
+36222>>>Use GeoConnectors\cOpenCageConnector.pkg
+Including file: GeoConnectors\cOpenCageConnector.pkg    (C:\Projects\LeafletTest\AppSrc\GeoConnectors\cOpenCageConnector.pkg)
+36222>>>>>Use cGeocodeConnector.pkg
+36222>>>>>
+36222>>>>>Class cOpenCageConnector is a cGeocodeConnector
+36223>>>>>    
+36223>>>>>    Procedure Construct_Object
+36225>>>>>        Forward Send Construct_Object
+36227>>>>>        Set psHost      to "api.opencagedata.com"
+36228>>>>>        Set psPath      to "geocode/v1/json"
+36229>>>>>        Set psKey       to (Config("tokens.openCageKey"))
+36230>>>>>        Set psName      to "OpenCage"
+36231>>>>>        Set psID        to "OPENCAGE"
+36232>>>>>        Set psWebSite   to "https://opencagedata.com/"
+36233>>>>>        
+36233>>>>>        Property Number[] panBoundingBox
+36234>>>>>    End_Procedure
+36235>>>>>    
+36235>>>>>    Function FreeQuery String sQuery Returns Handle
+36237>>>>>        Handle  hoJson
+36237>>>>>        Boolean bOK
+36237>>>>>        
+36237>>>>>        Move (Replaces(" ", sQuery, "%20")) to sQuery
+36238>>>>>        Move (Replaces(",", sQuery, "%2C")) to sQuery
+36239>>>>>        
+36239>>>>>        Move ("q=" + sQuery)    to sQuery
+36240>>>>>        Get DoGeoQuery sQuery   to hoJson
+36241>>>>>        
+36241>>>>>        Function_Return hoJson
+36242>>>>>    End_Function
+36243>>>>>    
+36243>>>>>    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+36245>>>>>        String  sQuery
+36245>>>>>        Handle  hoJson
+36245>>>>>        
+36245>>>>>        Move ("q=" + sPostcode + "&countrycode=" + sCountry)  to sQuery
+36246>>>>>        Move (Replaces(" ", sQuery, "%20"))                   to sQuery
+36247>>>>>        Get DoGeoQuery sQuery                                 to hoJson
+36248>>>>>        
+36248>>>>>        Function_Return hoJson
+36249>>>>>    End_Function
+36250>>>>>    
+36250>>>>>    Procedure ExtractData Handle hoJson
+36252>>>>>        Number nLat nLng
+36252>>>>>        Handle hoBox
+36252>>>>>        Number[] anBox
+36253>>>>>        
+36253>>>>>        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "results.[0].geometry.lat"))
+36254>>>>>        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "results.[0].geometry.lng"))
+36255>>>>>
+36255>>>>>        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "results.[0].formatted_address"))
+36256>>>>>    End_Procedure
+36257>>>>>    
+36257>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+36259>>>>>        Number[]  anBox
+36260>>>>>        stPolygon tBox
+36260>>>>>        stPolygon tBox
+36260>>>>>        String    sName
+36260>>>>>        
+36260>>>>>        If not hoMap ;            Procedure_Return
+36263>>>>>        If (pnLat(Self) = 100) ;            Procedure_Return
+36266>>>>>        
+36266>>>>>        Forward Send DrawMap hoJson hoMap
+36268>>>>>
+36268>>>>>        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))
+36269>>>>>    End_Procedure
+36270>>>>>    
+36270>>>>>End_Class
+36271>>>Use GeoConnectors\cTrimbleConnector.pkg
+Including file: GeoConnectors\cTrimbleConnector.pkg    (C:\Projects\LeafletTest\AppSrc\GeoConnectors\cTrimbleConnector.pkg)
+36271>>>>>Use cGeocodeConnector.pkg
+36271>>>>>
+36271>>>>>Class cTrimbleConnector is a cGeocodeConnector
+36272>>>>>    
+36272>>>>>    Procedure Construct_Object
+36274>>>>>        Forward Send Construct_Object
+36276>>>>>
+36276>>>>>        Set psHost      to "api.positionstack.com"
+36277>>>>>        Set psPath      to "v1/forward"
+36278>>>>>        Set psKey       to (Config("tokens.trimbleKey"))
+36279>>>>>        Set psName      to "Trimble"
+36280>>>>>        Set psID        to "TRIMBLE"
+36281>>>>>        Set psWebSite   to "https://developer.trimblemaps.com/"
+36282>>>>>        
+36282>>>>>        Property Number[] panBoundingBox
+36283>>>>>        
+36283>>>>>        // Position Stack free plan doesn't use HTTPS, so:
+36283>>>>>        Set piRemotePort    of oHttp to rpHttp
+36284>>>>>        Set peTransferFlags of oHttp to 0
+36285>>>>>    End_Procedure
+36286>>>>>    
+36286>>>>>    Function FreeQuery String sQuery Returns Handle
+36288>>>>>        Handle  hoJson
+36288>>>>>        Boolean bOK
+36288>>>>>        
+36288>>>>>        Move ("query=" + sQuery)            to sQuery
+36289>>>>>        Move (Replaces(" ", sQuery, "%20")) to sQuery
+36290>>>>>        Get DoGeoQuery sQuery               to hoJson
+36291>>>>>        
+36291>>>>>        Function_Return hoJson
+36292>>>>>    End_Function    
+36293>>>>>    
+36293>>>>>    Procedure ExtractData Handle hoJson
+36295>>>>>        Number nLat nLng
+36295>>>>>        Handle hoBox
+36295>>>>>        Number[] anBox
+36296>>>>>        
+36296>>>>>        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "data.[0].latitude"))
+36297>>>>>        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "data.[0].longitude"))
+36298>>>>>
+36298>>>>>        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "data.[0].label"))
+36299>>>>>    End_Procedure
+36300>>>>>    
+36300>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+36302>>>>>        Number[]  anBox
+36303>>>>>        stPolygon tBox
+36303>>>>>        stPolygon tBox
+36303>>>>>        String    sName
+36303>>>>>        
+36303>>>>>        If not hoMap ;            Procedure_Return
+36306>>>>>        If (pnLat(Self) = 100) ;            Procedure_Return
+36309>>>>>
+36309>>>>>        Forward Send DrawMap hoJson hoMap
+36311>>>>>
+36311>>>>>        Send DrawMap of hoMap (pnLat(Self)) (pnLng(Self)) (piZoom(Self)) (piMaxZoom(Self))
+36312>>>>>    End_Procedure
+36313>>>>>    
+36313>>>>>End_Class
+36314>>>Use GeoConnectors\cWhat3WordsConnector.pkg
+Including file: GeoConnectors\cWhat3WordsConnector.pkg    (C:\Projects\LeafletTest\AppSrc\GeoConnectors\cWhat3WordsConnector.pkg)
+36314>>>>>Use cGeocodeConnector.pkg
+36314>>>>>
+36314>>>>>Class cWhat3WordsConnector is a cGeocodeConnector
+36315>>>>>    
+36315>>>>>    Procedure Construct_Object
+36317>>>>>        Forward Send Construct_Object
+36319>>>>>        
+36319>>>>>        Set psHost      to "api.what3words.com"
+36320>>>>>        Set psPath      to "v3/convert-to-coordinates"
+36321>>>>>        Set psKey       to (Config("tokens.whatThreeWordsKey"))
+36322>>>>>        Set psName      to "What 3 Words"
+36323>>>>>        Set psID        to "WHT3WDS"
+36324>>>>>        Set psWebSite   to "https://www.what3words.com"
+36325>>>>>        
+36325>>>>>        Property Number[] panBoundingBox
+36326>>>>>    End_Procedure
+36327>>>>>    
+36327>>>>>    Function FreeQuery String sQuery Returns Handle
+36329>>>>>        Handle hoJson
+36329>>>>>        
+36329>>>>>        Move (Replaces(" ", sQuery, ".")) to sQuery
+36330>>>>>        Move ("words=" + sQuery)            to sQuery
+36331>>>>>        Get DoGeoQuery sQuery               to hoJson
+36332>>>>>        
+36332>>>>>        Function_Return hoJson
+36333>>>>>    End_Function
+36334>>>>>        
+36334>>>>>    Procedure ExtractData Handle hoJson
+36336>>>>>        Number nLat nLng
+36336>>>>>        String sCountry
+36336>>>>>        Number[] anBox
+36337>>>>>        
+36337>>>>>        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "coordinates.lat"))
+36338>>>>>        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "coordinates.lng"))
+36339>>>>>        
+36339>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "square.southwest.lat")) to anBox[0]
+36340>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "square.southwest.lng")) to anBox[2]
+36341>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "square.northeast.lat")) to anBox[1]
+36342>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "square.northeast.lng")) to anBox[3]
+36343>>>>>        Set panBoundingBox to anBox
+36344>>>>>
+36344>>>>>        Move (ValueAtPath(oJPath(Self), hoJson, "country")) to sCountry
+36345>>>>>        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "nearestPlace") + "," * sCountry)
+36346>>>>>    End_Procedure
+36347>>>>>    
+36347>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+36349>>>>>        Number[]  anBox
+36350>>>>>        stPolygon tBox
+36350>>>>>        stPolygon tBox
+36350>>>>>        String    sName
+36350>>>>>        
+36350>>>>>        If not hoMap ;            Procedure_Return
+36353>>>>>        If (pnLat(Self) = 100) ;            Procedure_Return
+36356>>>>>
+36356>>>>>        Forward Send DrawMap hoJson hoMap
+36358>>>>>
+36358>>>>>        Get panBoundingBox to anBox
+36359>>>>>        
+36359>>>>>        If (SizeOfArray(anBox) = 4) Begin
+36361>>>>>            Move anBox[0]   to tBox.aPoints[0][0]
+36362>>>>>            Move anBox[2]   to tBox.aPoints[0][1]
+36363>>>>>            
+36363>>>>>            Move anBox[1]   to tBox.aPoints[1][0]
+36364>>>>>            Move anBox[2]   to tBox.aPoints[1][1]
+36365>>>>>            
+36365>>>>>            Move anBox[1]   to tBox.aPoints[2][0]
+36366>>>>>            Move anBox[3]   to tBox.aPoints[2][1]
+36367>>>>>            
+36367>>>>>            Move anBox[0]   to tBox.aPoints[3][0]
+36368>>>>>            Move anBox[3]   to tBox.aPoints[3][1]
+36369>>>>>            
+36369>>>>>            Move (Config("defaults.polygon.lineColor"))     to tBox.sLineColor
+36370>>>>>            Move (Config("defaults.polygon.lineWeight"))    to tBox.iLineWeight
+36371>>>>>            Move (Config("defaults.polygon.lineOpacity"))   to tBox.nLineOpacity
+36372>>>>>            Move (Config("defaults.polygon.fillColor"))     to tBox.sFillColor
+36373>>>>>            Move (Config("defaults.polygon.fillOpacity"))   to tBox.nFillOpacity
+36374>>>>>            
+36374>>>>>            Move True to tBox.bStroke
+36375>>>>>            Move (pbFitMap(Self)) to tBox.bFitMap
+36376>>>>>            
+36376>>>>>            Send DrawPolygon of hoMap tBox
+36377>>>>>        End
+36377>>>>>>
+36377>>>>>        
+36377>>>>>    End_Procedure
+36378>>>>>    
+36378>>>>>End_Class
+36379>>>Use GeoConnectors\cGoogleMapsConnector.pkg
+Including file: GeoConnectors\cGoogleMapsConnector.pkg    (C:\Projects\LeafletTest\AppSrc\GeoConnectors\cGoogleMapsConnector.pkg)
+36379>>>>>Use cGeocodeConnector.pkg
+36379>>>>>
+36379>>>>>Class cGoogleMapsConnector is a cGeocodeConnector
+36380>>>>>    
+36380>>>>>    Procedure Construct_Object
+36382>>>>>        Forward Send Construct_Object
+36384>>>>>        
+36384>>>>>        Set psHost      to "maps.googleapis.com"
+36385>>>>>        Set psPath      to "maps/api/geocode/json"
+36386>>>>>        Set psKey       to (Config("tokens.googleMapsKey"))
+36387>>>>>        Set psName      to "Google Maps"
+36388>>>>>        Set psID        to "GOOGLEMAPS"
+36389>>>>>        Set psWebSite   to "https://developers.google.com/maps"
+36390>>>>>        
+36390>>>>>        Property Number[] panBoundingBox
+36391>>>>>    End_Procedure
+36392>>>>>    
+36392>>>>>    Function FreeQuery String sQuery Returns Handle
+36394>>>>>        Handle hoJson
+36394>>>>>        
+36394>>>>>        Move (Replaces(" ", sQuery, "%20"))   to sQuery
+36395>>>>>        Move ("address=" + sQuery)          to sQuery
+36396>>>>>        Get DoGeoQuery sQuery               to hoJson
+36397>>>>>        
+36397>>>>>        Function_Return hoJson
+36398>>>>>    End_Function
+36399>>>>>    
+36399>>>>>    Function StructuredQuery String[] asParams Returns Handle
+36401>>>>>        String   sQuery
+36401>>>>>        String[] asQuery
+36402>>>>>        Handle   hoJson
+36402>>>>>        
+36402>>>>>        Move (ReverseArray(asParams))           to asParams
+36403>>>>>        Move (StrJoinFromArray(asParams, "%20"))  to sQuery
+36404>>>>>        Move ("address=" + sQuery)              to sQuery
+36405>>>>>        Get DoGeoQuery sQuery                   to hoJson
+36406>>>>>        
+36406>>>>>        Function_Return hoJson
+36407>>>>>    End_Function
+36408>>>>>    
+36408>>>>>    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+36410>>>>>        String  sQuery sHouse
+36410>>>>>        Integer iArg
+36410>>>>>        Handle  hoJson
+36410>>>>>        
+36410>>>>>        If (num_arguments > 2) Begin
+36412>>>>>            Move 3 to iArg
+36413>>>>>            Move iArg& to sHouse
+36414>>>>>        End
+36414>>>>>>
+36414>>>>>        
+36414>>>>>        Move ("address=" + ;                If((sHouse = ""), "", (sHouse + " ")) + ;                sPostcode + " " + sCountry) to sQuery
+36415>>>>>        Move (Replaces(" ", sQuery, "%20"))   to sQuery
+36416>>>>>        Get DoGeoQuery sQuery               to hoJson
+36417>>>>>        
+36417>>>>>        Function_Return hoJson
+36418>>>>>    End_Function
+36419>>>>>    
+36419>>>>>    Procedure ExtractData Handle hoJson
+36421>>>>>        Number nLat nLng
+36421>>>>>        Handle hoBox
+36421>>>>>        Number[] anBox
+36422>>>>>        
+36422>>>>>        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.location.lat"))
+36423>>>>>        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.location.lng"))
+36424>>>>>        
+36424>>>>>        If (JsonAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds")) Begin
+36426>>>>>            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds.northeast.lat")) to anBox[0]
+36427>>>>>            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds.northeast.lng")) to anBox[1]
+36428>>>>>            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds.southwest.lat")) to anBox[2]
+36429>>>>>            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds.southwest.lng")) to anBox[3]
+36430>>>>>        End
+36430>>>>>>
+36430>>>>>        Else If (JsonAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport")) Begin
+36433>>>>>            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport.northeast.lat")) to anBox[0]
+36434>>>>>            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport.northeast.lng")) to anBox[1]
+36435>>>>>            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport.southwest.lat")) to anBox[2]
+36436>>>>>            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport.southwest.lng")) to anBox[3]
+36437>>>>>        End
+36437>>>>>>
+36437>>>>>        
+36437>>>>>        Set panBoundingBox to anBox
+36438>>>>>
+36438>>>>>        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "results[0].formatted_address"))
+36439>>>>>    End_Procedure
+36440>>>>>    
+36440>>>>>    Procedure DrawMap Handle hoJson Handle hoMap
+36442>>>>>        Number[]  anBox
+36443>>>>>        stPolygon tBox
+36443>>>>>        stPolygon tBox
+36443>>>>>        String    sName
+36443>>>>>        
+36443>>>>>        If not hoMap ;            Procedure_Return
+36446>>>>>        If (pnLat(Self) = 100) ;            Procedure_Return
+36449>>>>>
+36449>>>>>        Forward Send DrawMap hoJson hoMap
+36451>>>>>
+36451>>>>>        Get panBoundingBox to anBox
+36452>>>>>        
+36452>>>>>        If (SizeOfArray(anBox) = 4) Begin
+36454>>>>>            Move anBox[0]   to tBox.aPoints[0][0]
+36455>>>>>            Move anBox[1]   to tBox.aPoints[0][1]
+36456>>>>>            
+36456>>>>>            Move anBox[0]   to tBox.aPoints[1][0]
+36457>>>>>            Move anBox[3]   to tBox.aPoints[1][1]
+36458>>>>>            
+36458>>>>>            Move anBox[2]   to tBox.aPoints[2][0]
+36459>>>>>            Move anBox[3]   to tBox.aPoints[2][1]
+36460>>>>>            
+36460>>>>>            Move anBox[2]   to tBox.aPoints[3][0]
+36461>>>>>            Move anBox[1]   to tBox.aPoints[3][1]
+36462>>>>>            
+36462>>>>>            Move (Config("defaults.polygon.lineColor"))     to tBox.sLineColor
+36463>>>>>            Move (Config("defaults.polygon.lineWeight"))    to tBox.iLineWeight
+36464>>>>>            Move (Config("defaults.polygon.lineOpacity"))   to tBox.nLineOpacity
+36465>>>>>            Move (Config("defaults.polygon.fillColor"))     to tBox.sFillColor
+36466>>>>>            Move (Config("defaults.polygon.fillOpacity"))   to tBox.nFillOpacity
+36467>>>>>            
+36467>>>>>            Move True to tBox.bStroke
+36468>>>>>            Move (pbFitMap(Self)) to tBox.bFitMap
+36469>>>>>            
+36469>>>>>            Send DrawPolygon of hoMap tBox
+36470>>>>>        End
+36470>>>>>>
+36470>>>>>        
+36470>>>>>    End_Procedure
+36471>>>>>    
+36471>>>>>End_Class
+36472>>>
+36472>>>Object oTestGeoMap is a cWebView
+36474>>>    Set psCaption to "GeoMapping Test"
+36475>>>    
+36475>>>//    Property String psScanducMarker "Images/Scanduc-marker-icon.png"
+36475>>>    Property String psScanducMarker "Images/Scanduc-pointer-icon.png"
+36477>>>    
+36477>>>    Object oGeocodeHost is a cGeocodeHost
+36479>>>        
+36479>>>        Object oLocIQ is a cLocationIQConnector
+36481>>>            Set pbFitMap to False
+36482>>>        End_Object
+36483>>>        
+36483>>>        Object oOMapQ is a cMapQuestOpenConnector
+36485>>>        End_Object
+36486>>>        
+36486>>>        Object oPosStk is a cPositionStackConnector
+36488>>>        End_Object
+36489>>>        
+36489>>>        Object oGeoIO is a cGeocodeIOConnector
+36491>>>        End_Object
+36492>>>        
+36492>>>        Object oOpenCage is a cOpenCageConnector
+36494>>>        End_Object
+36495>>>        
+36495>>>        Object oHere is a cHereConnector
+36497>>>        End_Object
+36498>>>        
+36498>>>        Object oTrimble is a cTrimbleConnector
+36500>>>        End_Object
+36501>>>        
+36501>>>        Object oWhat3Words is a cWhat3WordsConnector
+36503>>>        End_Object
+36504>>>        
+36504>>>        Object oGoogleMaps is a cGoogleMapsConnector
+36506>>>        End_Object
+36507>>>        
+36507>>>    End_Object
+36508>>>    
+36508>>>    Procedure ProcessReturn Handle hoService Handle hoJson
+36511>>>        Set peWhiteSpace of hoJson to jpWhitespace_Pretty
+36512>>>        Set pbEscapeForwardSlash of hoJson to False
+36513>>>        WebSet psValue of oResult to (Stringify(hoJson))
+36514>>>        Send DrawMap of hoService hoJson (oMap(Self)) 
+36515>>>        Send Destroy of hoJson
+36516>>>        WebSet psValue of oQuery to (psQuery(hoService))
+36517>>>    End_Procedure
+36518>>>    
+36518>>>    Object oWebMainPanel is a cWebPanel
+36520>>>        Set piColumnCount to 12
+36521>>>        
+36521>>>        Object oMainGroup is a cWebGroup
+36523>>>            Set piColumnSpan to 5
+36524>>>            Set piColumnIndex to 0
+36525>>>            Set piColumnCount to 12
+36526>>>            Set pbFillHeight to True
+36527>>>            Set pbShowBorder to False
+36528>>>            Set pbShowCaption to False
+36529>>>            
+36529>>>            Object oMapMyLocBtn is a cWebButton
+36531>>>                Set piColumnSpan to 3
+36532>>>                Set piColumnIndex to 8
+36533>>>                Set psCaption to "Current Location"
+36534>>>                
+36534>>>                Procedure OnClick
+36537>>>                    WebSet psValue of oQuery    to ""
+36538>>>                    WebSet psValue of oResult   to ""
+36539>>>                    Send GetMyLocation of oMap
+36540>>>                End_Procedure
+36541>>>
+36541>>>            End_Object
+36542>>>    
+36542>>>            Object oLatitude is a cWebForm
+36544>>>                Set piColumnSpan to 4
+36545>>>                Set psLabel to "Lat:"
+36546>>>                Set peLabelAlign to alignRight
+36547>>>                Set piLabelOffset to 50
+36548>>>                Set peDataType to typeNumber
+36549>>>                Set piPrecision to 8
+36550>>>                Set psValue to "45.43401193"
+36551>>>            End_Object
+36552>>>            
+36552>>>            Object oLongitude is a cWebForm
+36554>>>                Set piColumnSpan to 4
+36555>>>                Set piColumnIndex to 4
+36556>>>                Set psLabel to "Lng:"
+36557>>>                Set peLabelAlign to alignRight
+36558>>>                Set piLabelOffset to 50
+36559>>>                Set peDataType to typeNumber
+36560>>>                Set piPrecision to 8
+36561>>>                Set psValue to "12.33826586"
+36562>>>            End_Object
+36563>>>            
+36563>>>            Object oSendLL is a cWebButton
+36565>>>                Set piColumnSpan to 3
+36566>>>                Set piColumnIndex to 8
+36567>>>                Set psCaption to "Send Lat/Lng"
+36568>>>                
+36568>>>                Procedure OnClick
+36571>>>                    Integer iInitZoom
+36571>>>                    Number  nLat nLng
+36571>>>                    
+36571>>>                    WebSet psValue of oQuery                        to ""
+36572>>>                    WebSet psValue of oResult                       to ""
+36573>>>                    WebGet psValue of oInitialZoom to iInitZoom
+36576>>>                    WebGet psValue of oLatitude    to nLat
+36579>>>                    WebGet psValue of oLongitude   to nLng
+36582>>>                    
+36582>>>                    Send DrawMap of oMap nLat nLng iInitZoom 22
+36583>>>                    Send DrawMarker of oMap nLat nLng ("Ah! Venice! (" + String(nLat) + " N/" + String(nLng) + " E)") "" False
+36584>>>                End_Procedure
+36585>>>                
+36585>>>            End_Object
+36586>>>
+36586>>>            Object oWebHorizontalLine1 is a cWebHorizontalLine
+36588>>>                Set piHeight to 25
+36589>>>            End_Object            
+36590>>>            
+36590>>>            Object oGeoService is a cWebCombo
+36592>>>                Set piColumnSpan to 7
+36593>>>                Set psLabel to "Service Provider:"
+36594>>>                Set peLabelAlign to alignRight
+36595>>>                Set piLabelOffset to 110
+36596>>>                Set pbAddEmptyItem to True
+36597>>>                
+36597>>>                Procedure OnFill
+36600>>>                    String[] asIDs asNames
+36602>>>                    Integer  i iMax
+36602>>>                    
+36602>>>                    Get pasConnectorIDs   of oGeocodeHost   to asIDs
+36603>>>                    Get pasConnectorNames of oGeocodeHost   to asNames
+36604>>>                    Move (SizeOfArray(asIDs) - 1)           to iMax
+36605>>>                    
+36605>>>                    For i from 0 to iMax
+36611>>>>
+36611>>>                        Send AddComboItem asIDs[i] asNames[i]
+36612>>>                    Loop
+36613>>>>
+36613>>>                    
+36613>>>                End_Procedure
+36614>>>    
+36614>>>            End_Object
+36615>>>    
+36615>>>            Object oWebSpacer1 is a cWebSpacer
+36617>>>                Set piColumnSpan to 12
+36618>>>                Set piHeight to 20
+36619>>>            End_Object
+36620>>>                    
+36620>>>            Object oFreeQuery is a cWebForm
+36622>>>                Set piColumnSpan to 12
+36623>>>                Set psLabel to "Free Text Query:"
+36624>>>                Set peLabelAlign to alignRight
+36625>>>                Set piLabelOffset to 110
+36626>>>                Set psValue to "CPH Conference, Tietgensgade 65, 1704 Copenhagen, Denmark"
+36627>>>            End_Object
+36628>>>            
+36628>>>            Object oSendFreeQryBtn is a cWebButton
+36630>>>                Set piColumnSpan to 4
+36631>>>                Set piColumnIndex to 8
+36632>>>                Set psCaption to "Send Free Text"
+36633>>>            
+36633>>>                Procedure OnClick
+36636>>>                    String  sServ sQuery
+36636>>>                    Handle  hoServ hoJson
+36636>>>                    Integer iInitZoom
+36636>>>                    
+36636>>>                    WebSet psValue of oQuery                        to ""
+36637>>>                    WebSet psValue of oResult                       to ""
+36638>>>                    WebGet psValue of oGeoService                   to sServ
+36641>>>                    Get ConnectorObjectFromID of oGeocodeHost sServ to hoServ
+36642>>>                    
+36642>>>                    If not hoServ Begin
+36644>>>                        Send ShowInfoBox "Please select a Service Provider first" "User Error"
+36645>>>                        Procedure_Return
+36646>>>                    End
+36646>>>>
+36646>>>                    
+36646>>>                    WebGet psValue of oInitialZoom to iInitZoom
+36649>>>                    Set piZoom of hoServ to iInitZoom
+36650>>>                    WebGet psValue of oFreeQuery  to sQuery
+36653>>>                    Get FreeQuery of hoServ sQuery to hoJson
+36654>>>                    
+36654>>>                    If hoJson Begin
+36656>>>                        Send ProcessReturn hoServ hoJson
+36657>>>                        If (GetChecked(oShowMarker(Self))) ;                            Send PlaceMarker of hoServ (oMap(Self)) ;                                (If((GetChecked(oCustomMarker(Self))), psScanducMarker(Self), ""))
+36660>>>                    End
+36660>>>>
+36660>>>                    Else ;                        Send ShowInfoBox (psError(hoServ)) "Request Failed"
+36662>>>                    
+36662>>>                End_Procedure
+36663>>>                
+36663>>>            End_Object
+36664>>>    
+36664>>>            Object oCountry is a cWebForm
+36666>>>                Set piColumnSpan to 9
+36667>>>                Set psLabel to "Country:"
+36668>>>                Set peLabelAlign to alignRight
+36669>>>                Set piLabelOffset to 110
+36670>>>                Set psValue to "GB"
+36671>>>            End_Object
+36672>>>    
+36672>>>            Object oPostcode is a cWebForm
+36674>>>                Set piColumnSpan to 9
+36675>>>                Set psLabel to "Postal Code:"
+36676>>>                Set peLabelAlign to alignRight
+36677>>>                Set piLabelOffset to 110
+36678>>>                Set psValue to "GU26 6EX"
+36679>>>            End_Object
+36680>>>    
+36680>>>            Object oState is a cWebForm
+36682>>>                Set piColumnSpan to 9
+36683>>>                Set psLabel to "State:"
+36684>>>                Set peLabelAlign to alignRight
+36685>>>                Set piLabelOffset to 110
+36686>>>                Set psValue to "England"
+36687>>>            End_Object
+36688>>>    
+36688>>>            Object oCounty is a cWebForm
+36690>>>                Set piColumnSpan to 9
+36691>>>                Set psLabel to "County:"
+36692>>>                Set peLabelAlign to alignRight
+36693>>>                Set piLabelOffset to 110
+36694>>>                Set psValue to "Surrey"
+36695>>>            End_Object
+36696>>>    
+36696>>>            Object oCity is a cWebForm
+36698>>>                Set piColumnSpan to 9
+36699>>>                Set psLabel to "City:"
+36700>>>                Set peLabelAlign to alignRight
+36701>>>                Set piLabelOffset to 110
+36702>>>                Set psValue to "Hindhead"
+36703>>>            End_Object
+36704>>>    
+36704>>>            Object oStreet is a cWebForm
+36706>>>                Set piColumnSpan to 9
+36707>>>                Set psLabel to "Street:"
+36708>>>                Set peLabelAlign to alignRight
+36709>>>                Set piLabelOffset to 110
+36710>>>                Set psValue to "Kingswood Firs"
+36711>>>            End_Object
+36712>>>    
+36712>>>            Object oHouse is a cWebForm
+36714>>>                Set piColumnSpan to 4
+36715>>>                Set psLabel to "House Number:"
+36716>>>                Set peLabelAlign to alignRight
+36717>>>                Set piLabelOffset to 110
+36718>>>                Set psValue to "8"
+36719>>>            End_Object
+36720>>>    
+36720>>>            Object oSendStructAddrBtn is a cWebButton
+36722>>>                Set piColumnSpan to 4
+36723>>>                Set piColumnIndex to 4
+36724>>>                Set psCaption to "Send Structured"
+36725>>>            
+36725>>>                Procedure OnClick
+36728>>>                    Handle   hoServ
+36728>>>                    String   sServ
+36728>>>                    String[] asParams
+36729>>>                    Handle   hoJson
+36729>>>                    Integer  iInitZoom        
+36729>>>                    
+36729>>>                    WebSet psValue of oQuery                        to ""
+36730>>>                    WebSet psValue of oResult                       to ""
+36731>>>                    WebGet psValue of oGeoService                   to sServ
+36734>>>                    Get ConnectorObjectFromID of oGeocodeHost sServ to hoServ
+36735>>>                    
+36735>>>                    If not hoServ Begin
+36737>>>                        Send ShowInfoBox "Please select a Service Provider first" "User Error"
+36738>>>                        Procedure_Return
+36739>>>                    End
+36739>>>>
+36739>>>                                            
+36739>>>                    WebGet psValue of oInitialZoom to iInitZoom
+36742>>>                    Set piZoom of hoServ to iInitZoom
+36743>>>                    
+36743>>>                    WebGet psValue of oCountry  to asParams[0]
+36746>>>                    WebGet psValue of oPostcode to asParams[1]
+36749>>>                    WebGet psValue of oState    to asParams[2]
+36752>>>                    WebGet psValue of oCounty   to asParams[3]
+36755>>>                    WebGet psValue of oCity     to asParams[4]
+36758>>>                    WebGet psValue of oStreet   to asParams[5]
+36761>>>                    WebGet psValue of oHouse    to asParams[6]
+36764>>>                    Get StructuredQuery of hoServ asParams to hoJson
+36765>>>                    
+36765>>>                    If hoJson Begin
+36767>>>                        Send ProcessReturn hoServ hoJson
+36768>>>                        If (GetChecked(oShowMarker(Self))) ;                            Send PlaceMarker of hoServ (oMap(Self)) ;                                (If((GetChecked(oCustomMarker(Self))), psScanducMarker(Self), ""))
+36771>>>                    End
+36771>>>>
+36771>>>                    Else ;                        Send ShowInfoBox (psError(hoServ)) "Request Failed"
+36773>>>                    
+36773>>>                End_Procedure
+36774>>>                
+36774>>>            End_Object
+36775>>>    
+36775>>>            Object oSendPostcodeQuery is a cWebButton
+36777>>>                Set piColumnSpan to 4
+36778>>>                Set piColumnIndex to 8
+36779>>>                Set psCaption to "Send Postcode"
+36780>>>            
+36780>>>                Procedure OnClick
+36783>>>                    String  sService sCountry sPostcode sHouse
+36783>>>                    Handle  hoServ hoJson
+36783>>>                    Integer iInitZoom
+36783>>>                    
+36783>>>                    WebSet psValue of oQuery                            to ""
+36784>>>                    WebSet psValue of oResult                           to ""
+36785>>>                    WebGet psValue of oGeoService                       to sService
+36788>>>                    Get ConnectorObjectFromID of oGeocodeHost sService to hoServ
+36789>>>
+36789>>>                    If not hoServ Begin
+36791>>>                        Send ShowInfoBox "Please select a Service Provider first" "User Error"
+36792>>>                        Procedure_Return
+36793>>>                    End
+36793>>>>
+36793>>>                                            
+36793>>>                    WebGet psValue of oInitialZoom to iInitZoom
+36796>>>                    Set piZoom of hoServ to iInitZoom
+36797>>>    
+36797>>>                    WebGet psValue of oCountry  to sCountry
+36800>>>                    WebGet psValue of oPostcode to sPostcode
+36803>>>                    WebGet psValue of oHouse    to sHouse
+36806>>>                    Get PostcodeQuery of hoServ sCountry sPostcode sHouse to hoJson
+36807>>>                    
+36807>>>                    If hoJson Begin
+36809>>>                        Send ProcessReturn hoServ hoJson
+36810>>>                        If (GetChecked(oShowMarker(Self))) ;                            Send PlaceMarker of hoServ (oMap(Self)) ;                                (If((GetChecked(oCustomMarker(Self))), psScanducMarker(Self), ""))
+36813>>>                    End
+36813>>>>
+36813>>>                    Else ;                        Send ShowInfoBox (psError(hoServ)) "Request Failed"
+36815>>>                    
+36815>>>                End_Procedure
+36816>>>                
+36816>>>            End_Object
+36817>>>            
+36817>>>            Object oQuery is a cWebEdit
+36819>>>                Set piColumnSpan to 0
+36820>>>                Set psLabel to "Query:"
+36821>>>                Set peLabelPosition to lpTop
+36822>>>                Set piHeight to 100
+36823>>>            End_Object
+36824>>>        
+36824>>>            Object oResult is a cWebEdit
+36826>>>                Set piColumnSpan to 0
+36827>>>                Set psLabel to "Result:"
+36828>>>                Set pbFillHeight to True
+36829>>>                Set peLabelPosition to lpTop
+36830>>>            End_Object
+36831>>>            
+36831>>>        End_Object
+36832>>>        
+36832>>>        Object oMapGroup is a cWebGroup
+36834>>>            Set piColumnSpan to 7
+36835>>>            Set piColumnIndex to 5
+36836>>>            Set piColumnCount to 20
+36837>>>            Set pbFillHeight to True
+36838>>>            Set pbShowBorder to False
+36839>>>            Set pbShowCaption to False
+36840>>>
+36840>>>            Object oShowMarker is a cWebCheckbox
+36842>>>                Set piColumnSpan to 3
+36843>>>                Set piColumnIndex to 0
+36844>>>                Set psCaption to "Show marker"
+36845>>>                Set psValue to True
+36846>>>            End_Object
+36847>>>
+36847>>>            Object oCustomMarker is a cWebCheckbox
+36849>>>                Set piColumnSpan to 3
+36850>>>                Set piColumnIndex to 3
+36851>>>                Set psCaption to "Scanduc Icon"
+36852>>>                Set Value to False
+36853>>>            End_Object
+36854>>>    
+36854>>>            Object oInitialZoom is a cWebCombo
+36856>>>                Set piColumnIndex to 6
+36857>>>                Set piColumnSpan to 5
+36858>>>                Set psLabel to "Initial Zoom:"
+36859>>>                Set peLabelAlign to alignRight
+36860>>>                Set peAlign to alignRight
+36861>>>                Set piLabelOffset to 120
+36862>>>                Set psValue to 12
+36863>>>                
+36863>>>                Procedure OnFill
+36866>>>                    Integer i
+36866>>>                    
+36866>>>                    For i from 1 to 22
+36872>>>>
+36872>>>                        Send AddComboItem i i
+36873>>>                    Loop
+36874>>>>
+36874>>>                    
+36874>>>                End_Procedure
+36875>>>                
+36875>>>            End_Object
+36876>>>            
+36876>>>            Object oResolution is a cWebCombo
+36878>>>                Set piColumnIndex to 11
+36879>>>                Set piColumnSpan to 3
+36880>>>                Set psLabel to "Res:"
+36881>>>                Set peLabelAlign to alignRight
+36882>>>                Set piLabelOffset to 60
+36883>>>                Set psValue to "256"
+36884>>>                
+36884>>>                Procedure OnFill
+36887>>>                    Send AddComboItem "256"  "256"
+36888>>>                    Send AddComboItem "512"  "512"
+36889>>>                    Send AddComboItem "1024" "1024"
+36890>>>                End_Procedure
+36891>>>                
+36891>>>                Set pbServerOnChange to True
+36892>>>                Procedure OnChange String sNewValue String sOldValue
+36895>>>                    WebSet psTileSize     of oMap to sNewValue
+36896>>>                    Send ChangeResolution of oMap    sNewValue
+36897>>>                End_Procedure
+36898>>>
+36898>>>            End_Object
+36899>>>    
+36899>>>            Object oMapLayer is a cWebCombo
+36901>>>                Set piColumnIndex to 14
+36902>>>                Set piColumnSpan to 6
+36903>>>                Set psLabel to "View:"
+36904>>>                Set peLabelAlign to alignRight
+36905>>>                Set piLabelOffset to 60
+36906>>>                Set psValue to "Map view"
+36907>>>                
+36907>>>                Procedure OnFill
+36910>>>                    Send AddComboItem "mapbox/streets-v11"              "Streets view"
+36911>>>                    Send AddComboItem "mapbox/outdoors-v11"             "Outdoors view"
+36912>>>                    Send AddComboItem "mapbox/light-v10"                "Light view"
+36913>>>                    Send AddComboItem "mapbox/dark-v10"                 "Dark view"
+36914>>>                    Send AddComboItem "mapbox/satellite-v9"             "Satellite view"
+36915>>>                    Send AddComboItem "mapbox/satellite-streets-v11"    "Satellite Streets view"
+36916>>>                    Send AddComboItem "mapbox/navigation-day-v1"        "Navigation view (day)"
+36917>>>                    Send AddComboItem "mapbox/navigation-night-v1"      "Navigation view (night)"
+36918>>>                End_Procedure
+36919>>>                
+36919>>>                Set pbServerOnChange to True
+36920>>>                Procedure OnChange String sNewValue String sOldValue
+36923>>>                    WebSet psLayerID of oMap to sNewValue
+36924>>>                    Send ChangeLayer of oMap    sNewValue
+36925>>>                End_Procedure
+36926>>>                
+36926>>>            End_Object
+36927>>>        
+36927>>>            Object oMap is a cLeafletMappingControl
+36929>>>                Set piColumnSpan to 0
+36930>>>                Set piColumnIndex to 0
+36931>>>                Set psLabel to "Map:"
+36932>>>                Set pbFillHeight to True
+36933>>>                Set peLabelPosition to lpTop
+36934>>>                Set pbShowLabel to True
+36935>>>                
+36935>>>                Property Integer piMark# 0
+36939>>>                
+36939>>>                // Just augmented to reset piMark# to zero on each map draw
+36939>>>                Procedure DrawMap Number nNorth Number nEast Integer iInitZoom Integer iMaxZoom
+36942>>>                    WebSet piMark# to 0
+36943>>>                    
+36943>>>                    Forward Send DrawMap nNorth nEast iInitZoom iMaxZoom
+36945>>>                End_Procedure
+36946>>>                
+36946>>>                Procedure MyLocation Number nLat Number nLng
+36949>>>                    Integer iInitZoom
+36949>>>                    Boolean bMark bCustom
+36949>>>                    
+36949>>>                    WebGet psValue of oInitialZoom  to iInitZoom
+36952>>>                    WebGet psValue of oShowMarker   to bMark
+36955>>>                    WebGet psValue of oCustomMarker to bCustom
+36958>>>                    Send DrawMap nLat nLng iInitZoom 22
+36959>>>                    If bMark ;                        Send DrawMarker nLat nLng "" (If(bCustom, "Images/Scanduc-pointer-icon.png", "")) False
+36962>>>                    WebSet psValue of oResult to ("Lat:" * String(nLat) + "," * "Lng:" * String(nLng))
+36963>>>                End_Procedure
+36964>>>                
+36964>>>                Set pbServerOnMapClick to True
+36965>>>                Procedure OnMapClick String sLat String sLng
+36968>>>                    Integer i
+36968>>>                    
+36968>>>                    WebGet piMark# to i
+36971>>>                    Increment i
+36972>>>                    WebSet piMark# to i
+36973>>>                    
+36973>>>                    Send DrawMarker sLat sLng ("Marker" * "#" + String(i) * ;                                               "at" * sLat + "/" + sLng) "" False
+36974>>>                End_Procedure
+36975>>>                
+36975>>>            End_Object
+36976>>>
+36976>>>        End_Object
+36977>>>
+36977>>>    End_Object
+36978>>>        
+36978>>>End_Object
+36979>    Use PathTrace.wo
+Including file: PathTrace.wo    (C:\Projects\LeafletTest\AppSrc\PathTrace.wo)
+36979>>>Use cWebView.pkg
+36979>>>Use cWebPanel.pkg
+36979>>>Use cWebForm.pkg 
+36979>>>Use cLeafletMappingControl.pkg
+36979>>>Use Flexml.pkg
+36979>>>Use seq_chnl.pkg
+36979>>>Use cWebCombo.pkg
+36979>>>Use cWebButton.pkg
+36979>>>Use cWebCheckBox.pkg
+36979>>>Use cWebSpacer.pkg
+36979>>>Use cWebEdit.pkg
+36979>>>
+36979>>>Object oPathTrace is a cWebView
+36981>>>    Set psCaption to "Path Trace Example"
+36982>>>    
+36982>>>    Object oWebMainPanel is a cWebPanel
+36984>>>        Set piColumnCount to 12
+36985>>>
+36985>>>        Object oTraces is a cWebCombo
+36987>>>            Set piColumnSpan to 5
+36988>>>            Set psLabel to "Select a trace:"
+36989>>>            Set peLabelAlign to alignRight
+36990>>>            
+36990>>>            
+36990>>>// JUST PUTTING THIS WHERE IT WON'T CONFUSE ME!            
+36990>>>//                    Get FindNode of hoDoc "METADATA" to hoElem1
+36990>>>//                    Get FindNode of hoXML "METADATA" to hoElem2
+36990>>>//                    
+36990>>>//                    Get FindNode of hoDoc "gpx" to hoElem1
+36990>>>//                    Get FindNode of hoXML "gpx" to hoElem2
+36990>>>//                    
+36990>>>//                    Get FindNode of hoDoc "/gpx" to hoElem1
+36990>>>//                    Get FindNode of hoXML "/gpx" to hoElem2
+36990>>>//                    
+36990>>>//                    Get FindNode of hoXml "//metadata" to hoElem1
+36990>>>//                    Get FindNode of hoDoc "//metadata" to hoElem2
+36990>>>//                    
+36990>>>//                    Get FindNode of hoXml "/metadata" to hoElem3
+36990>>>//                    Get FindNode of hoDoc "/metadata" to hoElem4
+36990>>>//                    
+36990>>>//                    Get FindNode of hoXml "metadata" to hoElem1
+36990>>>//                    Get FindNode of hoDoc "metadata" to hoElem2
+36990>>>//                    
+36990>>>//                    
+36990>>>//                    Get FindNode of hoDoc "trk/name" to hoElem1
+36990>>>//                    Get FindNode of hoDoc "/trk/name" to hoElem2
+36990>>>//                    Get FindNode of hoXml "trk/name" to hoElem3
+36990>>>//                    Get FindNode of hoXml "/trk/name" to hoElem4
+36990>>>//                    
+36990>>>//                    Get FindNode of hoXml "descendant::author" to hoElem1
+36990>>>//                    Get FindNode of hoDoc "descendant::author" to hoElem2
+36990>>>//                    
+36990>>>//                    Get FindNodeList of hoXml "/gpx" to hoElems
+36990>>>//                    
+36990>>>//                    If hoElems Begin
+36990>>>//                        Integer j iMax2
+36990>>>//                        
+36990>>>//                        Get NodeListLength of hoElems to iMax2
+36990>>>//                        
+36990>>>//                        For j from 0 to iMax2
+36990>>>//                            Get CollectionNode of hoElems j to hoElem1
+36990>>>//                        Loop
+36990>>>//                    End
+36990>>>//                    
+36990>>>//                    If hoElem1 Begin
+36990>>>//                        
+36990>>>//                        
+36990>>>//                        
+36990>>>//                        Send AddComboItem asPaths[i] (psText(hoElem1))
+36990>>>//                        Send Destroy of hoElem1
+36990>>>//                    End
+36990>>>//                    
+36990>>>//                    Send Destroy of hoDoc
+36990>>>//                    Send Destroy of hoXML
+36990>>>//                Loop
+36990>>>//                    
+36990>>>            
+36990>>>            Procedure ProcessFile Handle hoXml String sFile
+36993>>>                Integer  iOK i iMax
+36993>>>                String   sHome sAuthor sTrackName
+36993>>>                Handle   hoDoc hoElem1 hoElem2 hoElem3 hoElem4
+36993>>>                
+36993>>>                Get DocumentElement of hoXml to hoDoc
+36994>>>                If not hoDoc ;                    Procedure_Return
+36997>>>                
+36997>>>                Move "" to sAuthor
+36998>>>                
+36998>>>                Get FirstChild of hoDoc to hoElem1
+36999>>>                
+36999>>>                // ToDo: Need to destroy any hoXML elements when breaking out!!!
+36999>>>                While hoElem1
+37003>>>                    
+37003>>>                    If (sAuthor = "") Begin
+37005>>>                    
+37005>>>                        If (psNodeName(hoElem1) = "metadata") Begin
+37007>>>                            Get FirstChild of hoElem1 to hoElem2
+37008>>>                            
+37008>>>                            While hoElem2
+37012>>>                                    
+37012>>>                                If (psNodeName(hoElem2) = "author") Begin
+37014>>>                                    Get FirstChild of hoElem2 to hoElem3
+37015>>>                                    
+37015>>>                                    While hoElem3
+37019>>>                                        
+37019>>>                                        If (psNodeName(hoElem3) = "name") ;                                            Move (psText(hoElem3)) to sAuthor
+37022>>>                                        
+37022>>>                                        If (sAuthor <> "") ;                                            Send Destroy of hoElem3
+37025>>>                                        If (sAuthor <> "") ;                                            Break
+37028>>>                                            
+37028>>>                                        If (psNodeName(hoElem3) = "link") Begin
+37030>>>                                            Get FirstChild of hoElem3 to hoElem4
+37031>>>                                            
+37031>>>                                            While hoElem4
+37035>>>                                                If (psNodeName(hoElem4) = "text") ;                                                    Move (psText(hoElem4)) to sAuthor
+37038>>>                                                
+37038>>>                                                If (sAuthor <> "") ;                                                    Send Destroy of hoElem4
+37041>>>                                                If (sAuthor <> "") ;                                                    Break
+37044>>>                                                    
+37044>>>                                                Get NextNode of hoElem4 to hoElem4
+37045>>>                                            Loop
+37046>>>>
+37046>>>                                            
+37046>>>                                        End
+37046>>>>
+37046>>>                                        
+37046>>>                                        If (sAuthor <> "") ;                                            Send Destroy of hoElem3
+37049>>>                                        If (sAuthor <> "") ;                                            Break
+37052>>>                                        
+37052>>>                                        Get NextNode of hoElem3 to hoElem3
+37053>>>                                    Loop
+37054>>>>
+37054>>>                                    
+37054>>>                                End
+37054>>>>
+37054>>>                                
+37054>>>                                If (sAuthor <> "") ;                                    Send Destroy of hoElem2
+37057>>>                                If (sAuthor <> "") ;                                    Break 
+37060>>>                                
+37060>>>                                Get NextNode of hoElem2 to hoElem2
+37061>>>                            Loop
+37062>>>>
+37062>>>                            
+37062>>>                        End
+37062>>>>
+37062>>>                    
+37062>>>                        If (psNodeName(hoElem1) = "wpt") Begin
+37064>>>                            Get FirstChild of hoElem1 to hoElem2
+37065>>>                            
+37065>>>                            While hoElem2
+37069>>>                                
+37069>>>                                If (psNodeName(hoElem2) = "sym") Begin
+37071>>>                                    Move (psText(hoElem2)) to sAuthor
+37072>>>                                End
+37072>>>>
+37072>>>                                
+37072>>>                                If (sAuthor <> "") ;                                    Send Destroy of hoElem2
+37075>>>                                If (sAuthor <> "") ;                                    Break 
+37078>>>                                
+37078>>>                                Get NextNode of hoElem2 to hoElem2
+37079>>>                            Loop
+37080>>>>
+37080>>>                            
+37080>>>                        End
+37080>>>>
+37080>>>                        
+37080>>>                    End
+37080>>>>
+37080>>>                    
+37080>>>                    // Fallback option
+37080>>>                    If (sAuthor = "") ;                        Get AttributeValue of hoDoc "creator" to sAuthor
+37083>>>
+37083>>>                    If (psNodeName(hoElem1) = "trk") Begin
+37085>>>                        Get FirstChild of hoElem1 to hoElem2
+37086>>>                        
+37086>>>                        While hoElem2
+37090>>>                            
+37090>>>                            // Add the track If it has a name:
+37090>>>                            If (psNodeName(hoElem2) = "name") Begin
+37092>>>                                Send AddComboItem ;                                    sFile ;                                    (psText(hoElem2) * If((sAuthor = ""), "", "(" + sAuthor + ")") * - "-" * sFile)
+37093>>>                                Send Destroy of hoElem2
+37094>>>                                Send Destroy of hoElem1
+37095>>>                                Send Destroy of hoDoc
+37096>>>                                Procedure_Return
+37097>>>                            End
+37097>>>>
+37097>>>                            
+37097>>>                            Get NextNode of hoElem2 to hoElem2
+37098>>>                        Loop
+37099>>>>
+37099>>>                        
+37099>>>                        // Add the track If it has no name:
+37099>>>                        Send AddComboItem ;                            sFile ;                            (sFile * If((sAuthor = ""), "", "(" + sAuthor + ")") * - "-" * sFile)
+37100>>>                        Send Destroy of hoElem1
+37101>>>                        Send Destroy of hoDoc
+37102>>>                        Procedure_Return
+37103>>>                    End                        
+37103>>>>
+37103>>>                    
+37103>>>                    Get NextNode of hoElem1 to hoElem1
+37104>>>                Loop
+37105>>>>
+37105>>>                
+37105>>>                Send Destroy of hoDoc
+37106>>>            End_Procedure
+37107>>>            
+37107>>>            Procedure OnFill
+37110>>>                Integer  iChn i iMax iOK
+37110>>>                String   sHome                
+37110>>>                String[] asPaths
+37111>>>                Handle   hoXml
+37111>>>                
+37111>>>                // Find all .gpx files in Paths dir:
+37111>>>                Get Seq_New_Channel to iChn
+37112>>>                Move (psHome(phoWorkspace(ghoApplication))) to sHome
+37113>>>                
+37113>>>                Direct_Input channel iChn ("dir:" * sHome + "Paths\*.gpx")
+37115>>>                
+37115>>>                While not (SeqEof)
+37119>>>                    Readln asPaths[i]
+37120>>>                    Increment i
+37121>>>                Loop
+37122>>>>
+37122>>>                
+37122>>>                Close_Input channel iChn
+37124>>>                Send Seq_Release_Channel iChn
+37125>>>                
+37125>>>                // For each file, try to find the name of the path and the author
+37125>>>                Move (SizeOfArray(asPaths) - 1) to iMax
+37126>>>                
+37126>>>                For i from 0 to iMax
+37132>>>>
+37132>>>                    Get Create (RefClass(cXMLDOMDocument)) to hoXml
+37133>>>                    Set psDocumentName of hoXml to (sHome + "Paths\" + asPaths[i])
+37134>>>                    Get LoadXMLDocument of hoXml to iOK
+37135>>>                    If iOK ;                        Send ProcessFile hoXml asPaths[i]
+37138>>>                    Send Destroy of hoXml
+37139>>>                Loop
+37140>>>>
+37140>>>                
+37140>>>            End_Procedure
+37141>>>
+37141>>>        End_Object
+37142>>>
+37142>>>        Object oLoadTrace is a cWebButton
+37144>>>            Set piColumnSpan to 1
+37145>>>            Set piColumnIndex to 5
+37146>>>            Set psCaption to "Map trace"
+37147>>>        
+37147>>>            Procedure OnClick
+37150>>>                String  sFile sBase sContrib sText
+37150>>>                Handle  hoXML hoDoc hoTrack hoSeg hoPoint
+37150>>>                Boolean bOK bMark
+37150>>>                Integer i iPos
+37150>>>                stPolyline tLine
+37150>>>                stPolyline tLine
+37150>>>                stPolylines tEmpty
+37150>>>                stPolylines tEmpty
+37150>>>                
+37150>>>                WebSet ptPolylines of oMap to tEmpty
+37151>>>                
+37151>>>                Move (psHome(phoWorkspace(ghoApplication)) + "Paths\") to sBase
+37152>>>                
+37152>>>                WebGet psValue of oTraces to sFile
+37155>>>                
+37155>>>                Move (sBase + sFile) to sFile
+37156>>>                Move 0 to i
+37157>>>                
+37157>>>                Get Create (RefClass(cXMLDOMDocument)) to hoXML
+37158>>>                Set psDocumentName of hoXML to sFile
+37159>>>                Get LoadXMLDocument of hoXML to bOK
+37160>>>                
+37160>>>                If not bOK Begin
+37162>>>                    Send ShowInfoBox "Could not load path XML" "Load error"
+37163>>>                    Procedure_Return
+37164>>>                End
+37164>>>>
+37164>>>                
+37164>>>                Get DocumentElement of hoXML to hoDoc
+37165>>>                
+37165>>>                If not hoDoc ;                    Procedure_Return
+37168>>>                    
+37168>>>                Get FirstChild of hoDoc to hoTrack
+37169>>>                
+37169>>>                If not hoTrack ;                    Procedure_Return
+37172>>>                    
+37172>>>                While hoTrack
+37176>>>                    If (psNodeName(hoTrack) = "trk") ;                        Break
+37179>>>                    Get NextSibling of hoTrack to hoTrack
+37180>>>                Loop
+37181>>>>
+37181>>>                
+37181>>>                Get FirstChild of hoTrack to hoSeg
+37182>>>                
+37182>>>                If not hoSeg ;                    Procedure_Return
+37185>>>                    
+37185>>>                While hoSeg
+37189>>>                    
+37189>>>                    If (psNodeName(hoSeg) = "name") ;                        Move (psText(hoSeg)) to sText
+37192>>>                    
+37192>>>                    If (psNodeName(hoSeg) = "trkseg") Begin
+37194>>>                        Get FirstChild of hoSeg to hoPoint
+37195>>>                        
+37195>>>                        While hoPoint
+37199>>>                            
+37199>>>                            If (psNodeName(hoPoint) = "trkpt") Begin
+37201>>>                                Get AttributeValue of hoPoint "lat" to tLine.aPoints[i][0]
+37202>>>                                Get AttributeValue of hoPoint "lon" to tLine.aPoints[i][1]
+37203>>>                                Increment i
+37204>>>                            End
+37204>>>>
+37204>>>                            
+37204>>>                            Get NextSibling of hoPoint to hoPoint
+37205>>>                        Loop
+37206>>>>
+37206>>>
+37206>>>                    End
+37206>>>>
+37206>>>
+37206>>>                    Get NextSibling of hoSeg to hoSeg
+37207>>>                Loop
+37208>>>>
+37208>>>                
+37208>>>                Send Destroy of hoTrack
+37209>>>                Send Destroy of hoDoc
+37210>>>                Send Destroy of hoXml
+37211>>>                
+37211>>>                If (sText = "") ;                    Move sFile to sText
+37214>>>                
+37214>>>                Move (Config("defaults.polyline.lineColor"))    to tLine.sLineColor
+37215>>>                Move (Config("defaults.polyline.lineWeight"))   to tLine.iLineWeight
+37216>>>                Move (Config("defaults.polyline.lineOpacity"))  to tLine.nOpacity
+37217>>>                Move True                                       to tLine.bFitMap
+37218>>>                Move sText                                      to tLine.sText
+37219>>>                Move True                                       to tLine.bStroke
+37220>>>
+37220>>>                Send GeoContributor of oMap sContrib "" (If((sContrib <> ""), "Path", "")) False
+37221>>>                Send DrawMap of oMap tLine.aPoints[0][0] tLine.aPoints[0][1] 12 22
+37222>>>                
+37222>>>                If (GetChecked(oMarkStart(Self))) ;                    Send DrawMarker of oMap tLine.aPoints[0][0] tLine.aPoints[0][1] (Trim(sText * "Start")) "" False
+37225>>>    
+37225>>>                Send DrawPolyLine of oMap tLine
+37226>>>            End_Procedure
+37227>>>            
+37227>>>        End_Object
+37228>>>
+37228>>>        Object oMarkStart is a cWebCheckbox
+37230>>>            Set piColumnSpan to 2
+37231>>>            Set piColumnIndex to 6
+37232>>>            Set psCaption to "Show marker at start"
+37233>>>        End_Object
+37234>>>
+37234>>>        Object oResolution is a cWebCombo
+37236>>>            Set piColumnIndex to 8
+37237>>>            Set piColumnSpan to 2
+37238>>>            Set psLabel to "Res:"
+37239>>>            Set peLabelAlign to alignRight
+37240>>>            Set piLabelOffset to 60
+37241>>>            Set psValue to "256"
+37242>>>            
+37242>>>            Procedure OnFill
+37245>>>                Send AddComboItem "256"  "256"
+37246>>>                Send AddComboItem "512"  "512"
+37247>>>                Send AddComboItem "1024" "1024"
+37248>>>            End_Procedure
+37249>>>            
+37249>>>            Set pbServerOnChange to True
+37250>>>            Procedure OnChange String sNewValue String sOldValue
+37253>>>                WebSet psTileSize     of oMap to sNewValue
+37254>>>                Send ChangeResolution of oMap    sNewValue
+37255>>>            End_Procedure
+37256>>>
+37256>>>        End_Object
+37257>>>    
+37257>>>        Object oMapLayer is a cWebCombo
+37259>>>            Set piColumnIndex to 10
+37260>>>            Set piColumnSpan to 2
+37261>>>            Set psLabel to "View:"
+37262>>>            Set peLabelAlign to alignRight
+37263>>>            Set piLabelOffset to 60
+37264>>>            Set psValue to "Map view"
+37265>>>            
+37265>>>            Procedure OnFill
+37268>>>                    Send AddComboItem "mapbox/streets-v11"              "Streets view"
+37269>>>                    Send AddComboItem "mapbox/outdoors-v11"             "Outdoors view"
+37270>>>                    Send AddComboItem "mapbox/light-v10"                "Light view"
+37271>>>                    Send AddComboItem "mapbox/dark-v10"                 "Dark view"
+37272>>>                    Send AddComboItem "mapbox/satellite-v9"             "Satellite view"
+37273>>>                    Send AddComboItem "mapbox/satellite-streets-v11"    "Satellite Streets view"
+37274>>>                    Send AddComboItem "mapbox/navigation-day-v1"        "Navigation view (day)"
+37275>>>                    Send AddComboItem "mapbox/navigation-night-v1"      "Navigation view (night)"
+37276>>>            End_Procedure
+37277>>>            
+37277>>>            Set pbServerOnChange to True
+37278>>>            Procedure OnChange String sNewValue String sOldValue
+37281>>>                WebSet psLayerID of oMap to sNewValue
+37282>>>                Send ChangeLayer of oMap    sNewValue
+37283>>>            End_Procedure
+37284>>>            
+37284>>>        End_Object
+37285>>>
+37285>>>        Object oWebSpacer1 is a cWebSpacer
+37287>>>        End_Object
+37288>>>        
+37288>>>        Object oMap is a cLeafletMappingControl
+37290>>>        End_Object
+37291>>>
+37291>>>    End_Object 
+37292>>>
+37292>>>End_Object
+37293>    Use Countries.wo
+Including file: Countries.wo    (C:\Projects\LeafletTest\AppSrc\Countries.wo)
+37293>>>Use cWebView.pkg
+37293>>>Use cWebPanel.pkg
+37293>>>Use cWebForm.pkg
+37293>>>Use seq_chnl.pkg
+37293>>>Use cJsonPath.pkg
+37293>>>
+37293>>>Use cLeafletMappingControl.pkg
+37293>>>Use cWebCombo.pkg
+37293>>>Use cWebButton.pkg
+37293>>>Use cWebSpacer.pkg
+37293>>>
+37293>>>Object oCountries is a cWebView
+37295>>>    Set psCaption to "Countries Sample"
+37296>>>    
+37296>>>    Property Handle     phoCountriesData
+37298>>>    Property String[]   pasCountryNames
+37300>>>    Property Integer[]  paiCountryIndexes
+37302>>>    
+37302>>>    Object oJPath is a cJsonPath
+37304>>>    End_Object
+37305>>>
+37305>>>    Procedure LoadData
+37308>>>        UChar[]  ucaData
+37309>>>        Integer  iChn iMax i
+37309>>>        String   sHome sName sISO_A3
+37309>>>        String[] asNames
+37310>>>        Handle   hoJson hoFeatures hoFeature
+37310>>>        Boolean  bOK
+37310>>>        
+37310>>>        Move (psHome(phoWorkspace(ghoApplication))) to sHome
+37311>>>        Get Seq_New_Channel to iChn
+37312>>>        Direct_Input channel iChn (sHome + "countries.geojson")
+37314>>>        
+37314>>>        If (SeqEof) Begin
+37316>>>            Close_Input channel iChn
+37318>>>            Send Seq_Release_Channel iChn
+37319>>>            Procedure_Return
+37320>>>        End
+37320>>>>
+37320>>>
+37320>>>        // Read in file
+37320>>>        Read_Block channel iChn ucaData -1
+37322>>>        Close_Input channel iChn
+37324>>>        Send Seq_Release_Channel iChn
+37325>>>        
+37325>>>        Get Create (RefClass(cJsonObject)) to hoJson
+37326>>>        Get ParseUtf8 of hoJson ucaData to bOK
+37327>>>
+37327>>>        If bOK ;            Set phoCountriesData to hoJson
+37330>>>        Else Begin
+37331>>>            Send Destroy of hoJson
+37332>>>            Procedure_Return
+37333>>>        End
+37333>>>>
+37333>>>
+37333>>>        Move (JsonAtPath(oJPath, hoJson, "features")) to hoFeatures
+37334>>>        Move (MemberCount(hoFeatures)) to iMax
+37335>>>        Decrement iMax
+37336>>>        
+37336>>>        For i from 0 to iMax
+37342>>>>
+37342>>>            Get MemberByIndex of hoFeatures i to hoFeature
+37343>>>            Move (ValueAtPath(oJPath, hoFeature, "properties.ADMIN"))   to sName
+37344>>>            Move (ValueAtPath(oJPath, hoFeature, "properties.ISO_A3"))  to sISO_A3
+37345>>>            Move (sName * "(" + sISO_A3 + ")") to asNames[i]
+37346>>>            Send Destroy of hoFeature
+37347>>>        Loop
+37348>>>>
+37348>>>        
+37348>>>        Set pasCountryNames to asNames
+37349>>>        Send Destroy of hoFeatures
+37350>>>    End_Procedure
+37351>>>    
+37351>>>    Procedure End_Construct_Object
+37354>>>        Send LoadData
+37355>>>        
+37355>>>        Forward Send End_Construct_Object
+37357>>>    End_Procedure
+37358>>>    
+37358>>>    Function PolygonFromData Handle hoJson Returns stPolygon
+37361>>>        stPolygon tPoly
+37361>>>        stPolygon tPoly
+37361>>>        Integer   i iMax
+37361>>>        
+37361>>>        Get JsonToDataType of hoJson to tPoly.aPoints
+37362>>>        Move (SizeOfArray(tPoly.aPoints) - 1) to iMax
+37363>>>        
+37363>>>        // Lat/Lng are reveresed in this data, so...
+37363>>>        For i from 0 to iMax
+37369>>>>
+37369>>>            Move (ReverseArray(tPoly.aPoints[i])) to tPoly.aPoints[i]
+37370>>>        Loop
+37371>>>>
+37371>>>
+37371>>>        Move (Config("defaults.polygon.lineColor"))     to tPoly.sLineColor
+37372>>>        Move (Config("defaults.polygon.lineWeight"))    to tPoly.iLineWeight
+37373>>>        Move (Config("defaults.polygon.lineOpacity"))   to tPoly.nLineOpacity
+37374>>>        Move (Config("defaults.polygon.fillColor"))     to tPoly.sFillColor
+37375>>>        Move (Config("defaults.polygon.fillOpacity"))   to tPoly.nFillOpacity
+37376>>>        Move True                                       to tPoly.bStroke                    
+37377>>>        
+37377>>>        Send Destroy of hoJson
+37378>>>        Function_Return tPoly
+37379>>>    End_Function
+37380>>>    
+37380>>>    Procedure PlotMap
+37383>>>        Integer     iIdx iMaxSet iPoly iSubSets i j iMaxPoint
+37383>>>        Handle      hoData hoCoords hoSet hoPoint hoSubPt hoSubSet
+37383>>>        stPolygon[] atPolys
+37383>>>        stPolygon[] atPolys
+37384>>>        stPolygon   tPoly
+37384>>>        stPolygon   tPoly
+37384>>>        stPolygons  tEmptyPolys
+37384>>>        stPolygons  tEmptyPolys
+37384>>>        Boolean     bFitBounds
+37384>>>        Number      nMinN nMinE nMaxN nMaxE
+37384>>>        
+37384>>>        Move  100 to nMinN
+37385>>>        Move  200 to nMinE
+37386>>>        Move -100 to nMaxN
+37387>>>        Move -200 to nMaxE
+37388>>>        
+37388>>>        WebSet ptPolygons of oMap to tEmptyPolys  // Clear the polygons
+37389>>>        
+37389>>>        // Get the appropriate country data from the JSON:
+37389>>>        WebGet psValue of oCountrySel to iIdx
+37392>>>        Get phoCountriesData of oCountries to hoData
+37393>>>        Move (JsonAtPath(oJPath, hoData, "features.[" + String(iIdx) + "].geometry.coordinates")) to hoCoords
+37394>>>        
+37394>>>        If not hoCoords ;            Procedure_Return
+37397>>>        
+37397>>>        Get MemberCount of hoCoords to iMaxSet
+37398>>>        Decrement iMaxSet
+37399>>>        Move 0 to iPoly
+37400>>>        
+37400>>>        // Iterate through sets of points
+37400>>>        For i from 0 to iMaxSet
+37406>>>>
+37406>>>            Get MemberByIndex of hoCoords i to hoSet
+37407>>>            
+37407>>>            Get MemberCount of hoSet to iSubSets
+37408>>>            
+37408>>>            // If no contents, quit:
+37408>>>            If not iSubSets ;                Procedure_Return
+37411>>>            
+37411>>>            // Now check to see if hoSet is actually a set of points
+37411>>>            Get MemberByIndex of hoSet 0 to hoPoint
+37412>>>            
+37412>>>            // Ensure it is an array:
+37412>>>            If (JsonType(hoPoint) <> jsonTypeArray) ;                Procedure_Return
+37415>>>            
+37415>>>            Get MemberByIndex of hoPoint 0 to hoSubPt
+37416>>>            
+37416>>>            If (JsonType(hoSubPt) = jsonTypeDouble) Begin  // hoSet *is* a set of points
+37418>>>                Send Destroy of hoSubPt  // Lose this
+37419>>>                Send Destroy of hoPoint  // and this
+37420>>>                
+37420>>>                Get PolygonFromData hoSet to tPoly
+37421>>>                
+37421>>>                If (iPoly = 0) ;                    Move True to tPoly.bFitMap
+37424>>>                    
+37424>>>                Move tPoly to atPolys[iPoly]
+37425>>>                Increment iPoly
+37426>>>            End
+37426>>>>
+37426>>>            Else Begin  // hoSet is *not* just a set of points
+37427>>>                Send Destroy of hoSubPt  // Lose this
+37428>>>                Send Destroy of hoPoint  // and this
+37429>>>
+37429>>>                Decrement iSubSets  // MemberCount of hoSets
+37430>>>                Move True to bFitBounds
+37431>>>                
+37431>>>                For j from 0 to iSubSets
+37437>>>>
+37437>>>                    Get MemberByIndex of hoSet j to hoSubSet
+37438>>>                    
+37438>>>                    Get PolygonFromData hoSubSet to tPoly
+37439>>>                    
+37439>>>                    Move tPoly to atPolys[iPoly]
+37440>>>                    Increment iPoly
+37441>>>                Loop
+37442>>>>
+37442>>>                
+37442>>>            End
+37442>>>>
+37442>>>            
+37442>>>        Loop
+37443>>>>
+37443>>>        
+37443>>>        Send GeoContributor of oMap "DataHub" "https://datahub.io/" "Countries GeoJson" False
+37444>>>        Send DrawMap of oMap atPolys[0].aPoints[0][0] atPolys[0].aPoints[0][1] 8 22
+37445>>>
+37445>>>        Move (SizeOfArray(atPolys) - 1) to iMaxSet
+37446>>>        
+37446>>>        For iPoly from 0 to iMaxSet
+37452>>>>
+37452>>>            
+37452>>>            If bFitBounds Begin
+37454>>>                Move (SizeOfArray(atPolys[iPoly].aPoints) - 1) to iMaxPoint
+37455>>>            
+37455>>>                For i from 0 to iMaxPoint
+37461>>>>
+37461>>>                    Move (nMinN min atPolys[iPoly].aPoints[i][0]) to nMinN
+37462>>>                    Move (nMinE min atPolys[iPoly].aPoints[i][1]) to nMinE
+37463>>>                    Move (nMaxN max atPolys[iPoly].aPoints[i][0]) to nMaxN
+37464>>>                    Move (nMaxE max atPolys[iPoly].aPoints[i][1]) to nMaxE
+37465>>>                Loop
+37466>>>>
+37466>>>            
+37466>>>            End
+37466>>>>
+37466>>>            
+37466>>>            Send DrawPolygon of oMap atPolys[iPoly]
+37467>>>        Loop
+37468>>>>
+37468>>>        
+37468>>>        If bFitBounds ;            Send FitBounds of oMap nMinN nMinE nMaxN nMaxE
+37471>>>    End_Procedure
+37472>>>
+37472>>>    Object oWebMainPanel is a cWebPanel
+37474>>>        Set piColumnCount to 12
+37475>>>
+37475>>>        Object oCountrySel is a cWebCombo
+37477>>>            Set piColumnSpan to 4
+37478>>>            Set psLabel to "Select Country"
+37479>>>            Set peLabelAlign to alignRight
+37480>>>            
+37480>>>            Procedure OnFill
+37483>>>                String[] asNames
+37484>>>                Integer  i iMax
+37484>>>                
+37484>>>                Get pasCountryNames of oCountries to asNames
+37485>>>                Move (SizeOfArray(asNames) - 1) to iMax
+37486>>>                
+37486>>>                For i from 0 to iMax
+37492>>>>
+37492>>>                    Send AddComboItem i asNames[i]
+37493>>>                Loop                
+37494>>>>
+37494>>>                
+37494>>>            End_Procedure
+37495>>>            
+37495>>>            Set pbServerOnShow to True
+37496>>>            Procedure OnShow
+37499>>>                String[] asNames
+37500>>>                
+37500>>>                Get pasCountryNames to asNames
+37501>>>                WebSet psValue to asNames[0]
+37502>>>            End_Procedure
+37503>>>            
+37503>>>        End_Object
+37504>>>
+37504>>>        Object oDoMap is a cWebButton
+37506>>>            Set piColumnSpan to 1
+37507>>>            Set piColumnIndex to 4
+37508>>>            Set psCaption to "Draw Map"
+37509>>>        
+37509>>>            Procedure OnClick
+37512>>>                Send PlotMap
+37513>>>            End_Procedure
+37514>>>            
+37514>>>        End_Object
+37515>>>        
+37515>>>        Object oResolution is a cWebCombo
+37517>>>            Set piColumnIndex to 8
+37518>>>            Set piColumnSpan to 2
+37519>>>            Set psLabel to "Res:"
+37520>>>            Set peLabelAlign to alignRight
+37521>>>            Set piLabelOffset to 60
+37522>>>            Set psValue to "256"
+37523>>>            
+37523>>>            Procedure OnFill
+37526>>>                Send AddComboItem "256"  "256"
+37527>>>                Send AddComboItem "512"  "512"
+37528>>>                Send AddComboItem "1024" "1024"
+37529>>>            End_Procedure
+37530>>>            
+37530>>>            Set pbServerOnChange to True
+37531>>>            Procedure OnChange String sNewValue String sOldValue
+37534>>>                WebSet psTileSize     of oMap to sNewValue
+37535>>>                Send ChangeResolution of oMap    sNewValue
+37536>>>            End_Procedure
+37537>>>
+37537>>>        End_Object
+37538>>>    
+37538>>>        Object oMapLayer is a cWebCombo
+37540>>>            Set piColumnIndex to 10
+37541>>>            Set piColumnSpan to 2
+37542>>>            Set psLabel to "View:"
+37543>>>            Set peLabelAlign to alignRight
+37544>>>            Set piLabelOffset to 60
+37545>>>            Set psValue to "Map view"
+37546>>>            
+37546>>>            Procedure OnFill
+37549>>>                    Send AddComboItem "mapbox/streets-v11"              "Streets view"
+37550>>>                    Send AddComboItem "mapbox/outdoors-v11"             "Outdoors view"
+37551>>>                    Send AddComboItem "mapbox/light-v10"                "Light view"
+37552>>>                    Send AddComboItem "mapbox/dark-v10"                 "Dark view"
+37553>>>                    Send AddComboItem "mapbox/satellite-v9"             "Satellite view"
+37554>>>                    Send AddComboItem "mapbox/satellite-streets-v11"    "Satellite Streets view"
+37555>>>                    Send AddComboItem "mapbox/navigation-day-v1"        "Navigation view (day)"
+37556>>>                    Send AddComboItem "mapbox/navigation-night-v1"      "Navigation view (night)"
+37557>>>            End_Procedure
+37558>>>            
+37558>>>            Set pbServerOnChange to True
+37559>>>            Procedure OnChange String sNewValue String sOldValue
+37562>>>                WebSet psLayerID of oMap to sNewValue
+37563>>>                Send ChangeLayer of oMap    sNewValue
+37564>>>            End_Procedure
+37565>>>            
+37565>>>        End_Object
+37566>>>
+37566>>>        Object oWebSpacer1 is a cWebSpacer
+37568>>>        End_Object
+37569>>>        
+37569>>>        Object oMap is a cLeafletMappingControl
+37571>>>        End_Object
+37572>>>        
+37572>>>    End_Object
+37573>>>    
+37573>>>End_Object
+37574>    
+37574>End_Object
+37575>
+37575>Send StartWebApp of oWebApp
+37576>
+Summary
+Memory Available: 11874373632
+Total Warnings : 0
+Total Errors   : 0
+Total Symbols  : 24004
+Total Resources: 0
+Total Commands : 37575
+Total Windows  : 0
+Total Pages    : 0
+Static Data    : 497165
+Message area   : 261614
+Total Blocks   : 16882

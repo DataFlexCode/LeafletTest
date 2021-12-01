@@ -1,0 +1,127 @@
+﻿Use cGeocodeConnector.pkg
+
+Class cGoogleMapsConnector is a cGeocodeConnector
+    
+    Procedure Construct_Object
+        Forward Send Construct_Object
+        
+        Set psHost      to "maps.googleapis.com"
+        Set psPath      to "maps/api/geocode/json"
+        Set psKey       to (Config("tokens.googleMapsKey"))
+        Set psName      to "Google Maps"
+        Set psID        to "GOOGLEMAPS"
+        Set psWebSite   to "https://developers.google.com/maps"
+        
+        Property Number[] panBoundingBox
+    End_Procedure
+    
+    Function FreeQuery String sQuery Returns Handle
+        Handle hoJson
+        
+        Move (Replaces(" ", sQuery, "%20"))   to sQuery
+        Move ("address=" + sQuery)          to sQuery
+        Get DoGeoQuery sQuery               to hoJson
+        
+        Function_Return hoJson
+    End_Function
+    
+    Function StructuredQuery String[] asParams Returns Handle
+        String   sQuery
+        String[] asQuery
+        Handle   hoJson
+        
+        Move (ReverseArray(asParams))           to asParams
+        Move (StrJoinFromArray(asParams, "%20"))  to sQuery
+        Move ("address=" + sQuery)              to sQuery
+        Get DoGeoQuery sQuery                   to hoJson
+        
+        Function_Return hoJson
+    End_Function
+    
+    Function PostcodeQuery String sCountry String sPostcode Returns Handle
+        String  sQuery sHouse
+        Integer iArg
+        Handle  hoJson
+        
+        If (num_arguments > 2) Begin
+            Move 3 to iArg
+            Move iArg& to sHouse
+        End
+        
+        Move ("address=" + ;
+                If((sHouse = ""), "", (sHouse + " ")) + ;
+                sPostcode + " " + sCountry) to sQuery
+        Move (Replaces(" ", sQuery, "%20"))   to sQuery
+        Get DoGeoQuery sQuery               to hoJson
+        
+        Function_Return hoJson
+    End_Function
+    
+    Procedure ExtractData Handle hoJson
+        Number nLat nLng
+        Handle hoBox
+        Number[] anBox
+        
+        Set pnLat to (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.location.lat"))
+        Set pnLng to (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.location.lng"))
+        
+        If (JsonAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds")) Begin
+            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds.northeast.lat")) to anBox[0]
+            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds.northeast.lng")) to anBox[1]
+            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds.southwest.lat")) to anBox[2]
+            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.bounds.southwest.lng")) to anBox[3]
+        End
+        Else If (JsonAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport")) Begin
+            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport.northeast.lat")) to anBox[0]
+            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport.northeast.lng")) to anBox[1]
+            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport.southwest.lat")) to anBox[2]
+            Move (ValueAtPath(oJPath(Self), hoJson, "results[0].geometry.viewport.southwest.lng")) to anBox[3]
+        End
+        
+        Set panBoundingBox to anBox
+
+        Set psDisplayName to (ValueAtPath(oJPath(Self), hoJson, "results[0].formatted_address"))
+    End_Procedure
+    
+    Procedure DrawMap Handle hoJson Handle hoMap
+        Number[]  anBox
+        stPolygon tBox
+        String    sName
+        
+        If not hoMap ;
+            Procedure_Return
+        If (pnLat(Self) = 100) ;
+            Procedure_Return
+
+        Forward Send DrawMap hoJson hoMap
+
+        Get panBoundingBox to anBox
+        
+        If (SizeOfArray(anBox) = 4) Begin
+            Move anBox[0]   to tBox.aPoints[0][0]
+            Move anBox[1]   to tBox.aPoints[0][1]
+            
+            Move anBox[0]   to tBox.aPoints[1][0]
+            Move anBox[3]   to tBox.aPoints[1][1]
+            
+            Move anBox[2]   to tBox.aPoints[2][0]
+            Move anBox[3]   to tBox.aPoints[2][1]
+            
+            Move anBox[2]   to tBox.aPoints[3][0]
+            Move anBox[1]   to tBox.aPoints[3][1]
+            
+            Move (Config("defaults.polygon.lineColor"))     to tBox.sLineColor
+            Move (Config("defaults.polygon.lineWeight"))    to tBox.iLineWeight
+            Move (Config("defaults.polygon.lineOpacity"))   to tBox.nLineOpacity
+            Move (Config("defaults.polygon.fillColor"))     to tBox.sFillColor
+            Move (Config("defaults.polygon.fillOpacity"))   to tBox.nFillOpacity
+            
+            Move True to tBox.bStroke
+            Move (pbFitMap(Self)) to tBox.bFitMap
+            
+            Send DrawPolygon of hoMap tBox
+        End
+        
+    End_Procedure
+    
+End_Class
