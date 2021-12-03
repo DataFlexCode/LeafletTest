@@ -1403,7 +1403,7 @@ getDragData : function (oEv, eDraggedElem) {
         const itemId = eDraggedElem.getAttribute("data-dftree-id") || -1;
         let item, eAction;
 
-        if (itemId && (itemId != '' || itemId >= 0)) {
+        if (itemId && itemId != -1 && (itemId != '' || itemId >= 0)) {
             // Destructure object to create a clone, then remove any privates (prevent circular json error)
             item = {...this.getNodeById(itemId)};
             
@@ -1430,7 +1430,7 @@ getDropData : function (oDropZone, oPosition) {
         const itemId = oDropZone._eDropElem.getAttribute("data-dftree-id") || -1;
         let item, eAction;
 
-        if (itemId && (itemId != '' || itemId >= 0)) {
+        if (itemId && itemId != -1 && (itemId != '' || itemId >= 0)) {
             // Destructure object to create a clone, then remove any privates (prevent circular json error)
             item = {...this.getNodeById(itemId)};
             

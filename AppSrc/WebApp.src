@@ -1,7 +1,6 @@
 ﻿Use AllWebAppClasses.pkg
 Use cConnection.pkg
 Use cWebMenuItemLoadView.pkg
-Use JsonConfig.pkg
 
 Object oApplication is a cApplication
     Object oConnection is a cConnection
@@ -15,6 +14,8 @@ Object oWebApp is a cWebApp
     Set peLoginMode to lmLoginNone
     Set psEncryptPassword to "Q7>}w~hmwPZ9#6g^wTyq[zAo>(k.Pvm#ndfiDO34"
     
+    Use JsonConfig.pkg
+
     Get LoadConfig of ghoJsonConfig to WindowIndex  // Loads setting from Programs/Config.json
                                                     // (the default filename)        
 

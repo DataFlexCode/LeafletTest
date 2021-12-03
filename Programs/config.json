@@ -1,0 +1,28 @@
+{
+    "tokens": {
+        "leafletAccessToken"    : "",
+        "locationIQKey"         : "key=",
+        "mapQuestOpenKey"       : "key=",
+        "positionStackKey"      : "access_key=",
+        "geocodeIOKey"          : "api_key=",
+        "openCageKey"           : "key=",
+        "hereKey"               : "apiKey=",
+        "trimbleKey"            : "access_key=",
+        "whatThreeWordsKey"     : "key=",
+        "googleMapsKey"         : "key="
+    },
+    "defaults": {
+        "polygon": {
+            "lineColor"     : "red",
+            "lineWeight"    : 1,
+            "lineOpacity"   : 0.7,
+            "fillColor"     : "red",
+            "fillOpacity"   : 0.1
+        },
+        "polyline": {
+            "lineColor"     : "red",
+            "lineWeight"    : 3,
+            "lineOpacity"   : 0.7
+        }
+    }
+}

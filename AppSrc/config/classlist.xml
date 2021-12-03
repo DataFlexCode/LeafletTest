@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <classList xmlns="http://www.dataaccess.com/VisualDataFlex/2006/classlist/">
-	<VDFLibraryTimeStamp>2021-11-15T00:58:49</VDFLibraryTimeStamp>
+	<VDFLibraryTimeStamp>2021-11-30T17:17:06</VDFLibraryTimeStamp>
 	<libraries>
 		<library>
 			<libraryPath>C:\Projects\LeafletLibrary\LeafletMappingComponent-201.sws</libraryPath>
@@ -1084,6 +1084,13 @@
 			<className>cWebDragDropFileHelper</className>
 			<image>cWebDragDropFileHelper.ico</image>
 			<package>cWebDragDropFileHelper.pkg</package>
+			<groupName>Web Controls</groupName>
+			<libraryID>0</libraryID>
+		</class>
+		<class>
+			<className>cWebMenuItemCheckbox</className>
+			<image>cWebMenuItemCheckbox.ico</image>
+			<package>cWebMenuItemCheckbox.pkg</package>
 			<groupName>Web Controls</groupName>
 			<libraryID>0</libraryID>
 		</class>

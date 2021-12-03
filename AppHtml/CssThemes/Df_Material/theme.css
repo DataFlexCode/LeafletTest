@@ -2963,10 +2963,6 @@ color: #FFFFFF;*/
     transition: visibility 0s linear 0.3s, opacity 0.3s ease-in-out;
 }
 
-.WebFlPnl {
-    box-shadow: 0 4px 15px 0 rgba(0, 0, 0, 0.23);
-}
-
 .WebFlPnl.WebFP_Visible {
     transition-delay: 0s;
 }
@@ -3039,7 +3035,8 @@ color: #FFFFFF;*/
     padding: 0px 0px 0px 0px;
 }
 
-.WebFlPnl.Shadow>.WebContainer {
+.WebMBPanel > .WebContainer,
+.WebFlPnl.Shadow > .WebContainer {
     box-shadow: 0 4px 15px 0 rgba(0, 0, 0, 0.23);
 }
 

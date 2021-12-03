@@ -57,8 +57,6 @@ cellClick). This needs to be done so that clicking checkboxes in rows that are n
 selected also works.
 */
 cellClickAfter : function(oEv, sRowId, sColVal){
-    var that = this;
-    
     df.WebColumnCheckbox.base.cellClickAfter.call(this, oEv, sRowId, sColVal);
     
     //  Tick the checkbox if it was just clicked
@@ -66,13 +64,13 @@ cellClickAfter : function(oEv, sRowId, sColVal){
         
         //  We wait for the call to finish as this might called from the setter of psCurrentRowId and psValue might still get set afterwards (and we don't want that as it would revert the change)
         this.getWebApp().waitForCall(function(){
-            that._bIgnoreOnChange = false;
-            if(that._sTick === that._oParent.currentRowId()){
-                that.tick();
-                that._sTick = null;
+            this._bIgnoreOnChange = false;
+            if(this._sTick === this._oParent.currentRowId()){
+                this.tick();
+                this._sTick = null;
             }
-            that._bIgnoreOnChange = true;
-        });
+            this._bIgnoreOnChange = true;
+        }, this);
     }
 },
 

@@ -1247,18 +1247,49 @@ initDropZones : function () {
 determineDropCandidate : function(oEv, aHelpers) {
     let eElem = document.elementFromPoint(oEv.e.x, oEv.e.y);
     let bSupported = false;
+    let rowElem = null, bFound = false, iIndex;
+
+    for (let i = 0; i < aHelpers.length; i++) {
+        if (aHelpers[i].supportsDropAction(this, df.dropActions.WebList.ciDropOnRow)) {
+            bSupported = true;
+            break;
+        }
+    }
     
     while (eElem != this._eElem) {
         if (eElem.hasAttribute('data-dfrowid')) {
-            for (let i = 0; i < aHelpers.length; i++) {
-                if (aHelpers[i].supportsDropAction(this, df.dropActions.WebList.ciDropOnRow)) {
-                    bSupported = true;
-                    break;
-                }
-            }
             if (eElem.getAttribute('data-dfrowid') == 'empty') {
                 if (bSupported) {
-                    return [null, df.dropActions.WebList.ciDropOnRow];
+                    let rowElem = eElem
+                    while(rowElem){
+                        if(rowElem.getAttribute('data-dfrowid') != 'empty'){
+                            return [rowElem, df.dropActions.WebList.ciDropOnRow];
+                        }
+                        rowElem = rowElem.previousElementSibling;
+                    }
+                    // We want to support being able to drop when hovering anywhere in the list
+                    // As a last-ditch effort, try to find the last row with data
+                    // const aElems = df.dom.query(this._eElem, '.WebList_Row', true);
+                    // if (aElems && aElems.length > 0 && bSupported) {
+                    //     for (let j = 0; j < aElems.length; j++){
+                    //         rowElem = aElems[j];
+                    //         bFound = false;
+                    //         iIndex = j;
+                    //         switch (rowElem.getAttribute('data-dfrowid')) {
+                    //             case 'empty':
+                    //                 iIndex = j - 1;
+                    //                 bFound = true;
+                    //                 break;
+                    //             default:
+                    //                 break;
+                    //         }
+                    //         if (bFound) {
+                    //             if (iIndex < 0) { iIndex = 0;}
+                    //             // console.log(iIndex);
+                    //             return [aElems[iIndex], df.dropActions.WebList.ciDropOnRow];
+                    //         }
+                    //     }
+                    // }
                 }
             } else {
                 if (bSupported) {
@@ -1327,6 +1358,7 @@ dragScroll : function (dY) {
 interactWithDropElem : function(dropZone, eElem) {
     let eTempElem = document.createElement('table');
     df.dom.addClass(eTempElem, 'WebList_Row WebList_DropPlaceHolder');
+    eTempElem.setAttribute('data-dfrowid', 'empty');
 
     const iHeight = this.getPlaceholderRowHeight();
 

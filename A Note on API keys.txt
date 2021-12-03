@@ -1,0 +1,27 @@
+A note on API keys
+==================
+
+Although the workspace is the one I used to demonstrate the Leathere flet library functionality,
+there are a number of API keys which need to be used to actually get things to work.
+
+I have hidden mine in a file called Programs\config.json which is accessed by the program at
+runtime out of which those API keys are read using the expression:
+
+				(Config("tokens.keyName"))
+				
+			Example:
+				
+				(Config("tokens.locationIQKey"))
+
+In order to make the sample function you will need to populate that with your own keys which you
+should be able to get from each of the service providers.
+
+There is a version of this file in the sample, but the keys in it are empty (mostly).
+
+In many cases the actual keys are prefixed by the xxxx= setting to be passed as a URL parameter
+in calls to the servicew involved, so you will see there: "locationIQKey"         : "key=", because
+Location IQ wants key=yourAPIKey to be passed as a URL query paameter.
+
+There are other settings in that file which should be self expanatory.
+
+

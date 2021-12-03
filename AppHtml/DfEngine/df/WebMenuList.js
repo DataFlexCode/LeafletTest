@@ -448,6 +448,7 @@ be taken into account.
 */
 getVertHeightDiff : function(){
     var iResult = df.WebMenuList.base.getVertHeightDiff.call(this);
+    iResult += this._eMenuTitle?.offsetHeight;
     iResult += df.sys.gui.getVertBoxDiff(this._eMenuPanel);
     return iResult;
 },

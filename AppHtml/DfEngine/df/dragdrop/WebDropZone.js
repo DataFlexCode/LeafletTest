@@ -6,6 +6,7 @@ this._aHelpers = [];                                  // List of responsible hel
 this._eDropPosition = -1;                             // Determined position (on, before, or after) for the dropped element. -1 = unknown.
 this._eDropElem = null;                               // Temporary reference to the current element being dropped on
 this._eDropAction = -1;                               // Temporary reference to the elements' corresponding drop action
+this._iEnterCount = 0;                                // Used to determine if we actually left this dropzone when a dragLeave event fires
 };
 
 df.defineClass("df.WebDropZone", {
@@ -53,6 +54,7 @@ df.defineClass("df.WebDropZone", {
       oEv.e.preventDefault();
       this._oControl.onDrop(oEv, this, this._eDropAction);
       this.removeDropElemInteractions();
+      this._iEnterCount = 0;
   },
 
   onDragOver : function (oEv) {
@@ -77,7 +79,6 @@ df.defineClass("df.WebDropZone", {
           ePosition = this.getDropPosition(oEv, eDropElem);
         }
         const bInteract = ((ePosition > 0 && eDropElem != null) && (eDropElem != this._eDropElem || this._eDropPosition != ePosition));
-        
         if (bInteract && !bOverDropPlaceHolder) {
             this.removeDropElemInteractions();
             this._eDropElem = eDropElem;
@@ -92,36 +93,40 @@ df.defineClass("df.WebDropZone", {
   },
 
   onDragEnter : function (oEv) {
-      // oEv.e.preventDefault();
-
-      // return false;
+    oEv.e.preventDefault();
+    this._iEnterCount ++;
+    // return false;
   },
 
   onDragLeave : function (oEv) {
     oEv.e.preventDefault();
+    this._iEnterCount --;
 
     // Check if we actually left the dropzone
-    if (!this.isInDropZone(oEv)) {
+    // if (!this.isInDropZone(oEv)) {
+    // Now use a simple counter, probably much more efficient...
+    if (this._iEnterCount <= 0) {
       this.removeDropElemInteractions();
       this._eDropElem = null;
       this._eDropPosition = 0;
+      this._iEnterCount = 0;
     }  
 
     // return false;
   },
 
-  isInDropZone : function (oEv) {
-    let eElem = document.elementFromPoint(oEv.e.x, oEv.e.y);
+  // isInDropZone : function (oEv) {
+  //   let eElem = document.elementFromPoint(oEv.e.x, oEv.e.y);
     
-    while (eElem && eElem != this._oControl._eElem) {
-        if (eElem == this._eZone) {
-            return true;
-        }
-        eElem = eElem.parentNode;
-    }
+  //   while (eElem && eElem != this._oControl._eElem) {
+  //       if (eElem == this._eZone) {
+  //           return true;
+  //       }
+  //       eElem = eElem.parentNode;
+  //   }
 
-    return false;
-  },
+  //   return false;
+  // },
 
   getDropCandidate : function (oEv) {
     const [eDropElem, eDropAction] = this._oControl.determineDropCandidate(oEv, this._aHelpers);
@@ -199,7 +204,7 @@ df.defineClass("df.WebDropZone", {
 
   removeInsertedElement : function() {
     if (this._eInsertedElem) {
-        this._eInsertedElem?.parentNode.removeChild(this._eInsertedElem);
+        this._eInsertedElem?.parentNode?.removeChild(this._eInsertedElem);
         this._eInsertedElem = null;
     }
   }
