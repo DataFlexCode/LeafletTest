@@ -1,7 +1,7 @@
 {
     "tokens": {
         "leafletAccessToken"    : "",
-        "locationIQKey"         : "key=",
+        "locationIQKey"         : "key=foo",
         "mapQuestOpenKey"       : "key=",
         "positionStackKey"      : "access_key=",
         "geocodeIOKey"          : "api_key=",
