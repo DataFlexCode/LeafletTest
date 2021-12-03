@@ -24,4 +24,17 @@ Location IQ wants key=yourAPIKey to be passed as a URL query paameter.
 
 There are other settings in that file which should be self expanatory.
 
+So that I can run with my own keys I have in WebApp.src the lines:
+	//    Get LoadConfig of ghoJsonConfig to WindowIndex  // Loads setting from Programs/config.json (the default)
+          Get LoadConfig of ghoJsonConfig "leafletConfig.json" to WindowIndex  // Loads setting from Programs/leafletConfig.json
+
+Where I have added Programs/leafletConfig.json to the .gitignore file, so that will not be exposed
+with its private keys.  You can populate config.json with your own keys and either save that as
+leafletConfig.json or reverse the commenting out of the two lines above and recompile.
+
+The initial load of the program is rather slow, because at that point it needs to read in a
+rather large (23.5 Mb) countries.geojson file, used in the "Countries" demo view, so don't
+worry if it doesn't come up in the browser as fast as you'd usually expect during the
+change/compile/debug-run cycle.
+
 

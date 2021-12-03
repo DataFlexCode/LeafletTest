@@ -16,8 +16,8 @@ Object oWebApp is a cWebApp
     
     Use JsonConfig.pkg
 
-    Get LoadConfig of ghoJsonConfig to WindowIndex  // Loads setting from Programs/Config.json
-                                                    // (the default filename)        
+//    Get LoadConfig of ghoJsonConfig to WindowIndex  // Loads setting from Programs/config.json (the default)
+    Get LoadConfig of ghoJsonConfig "leafletConfig.json" to WindowIndex  // Loads setting from Programs/leafletConfig.json
 
     Object oCommandbar is a cWebCommandBar
         Object oMenuBar is a cWebMenuBar

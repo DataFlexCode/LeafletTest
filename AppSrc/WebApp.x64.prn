@@ -1,5 +1,5 @@
 Compiling Program: C:\Projects\LeafletTest\AppSrc\WebApp.src
-Memory Available: 10759307264
+Memory Available: 11386982400
 1>Use AllWebAppClasses.pkg
 Using pre-compiled package ALLWEBAPPCLASSES.PKG
 Including file: AllWebAppClasses.x64.pkd    (C:\Program Files\DataFlex 20.1\Pkg\AllWebAppClasses.x64.pkd)
@@ -374,8 +374,8 @@ Including file: JsonConfig.pkg    (C:\Projects\LeafletTest\AppSrc\JsonConfig.pkg
 34700>>>    Function_Return (Setting(ghoJsonConfig, sDefs))
 34701>>>End_Function
 34702>
-34702>    Get LoadConfig of ghoJsonConfig to WindowIndex  // Loads setting from Programs/Config.json
-34703>                                                    // (the default filename)        
+34702>//    Get LoadConfig of ghoJsonConfig to WindowIndex  // Loads setting from Programs/config.json (the default)
+34702>    Get LoadConfig of ghoJsonConfig "leafletConfig.json" to WindowIndex  // Loads setting from Programs/leafletConfig.json
 34703>
 34703>    Object oCommandbar is a cWebCommandBar
 34705>        Object oMenuBar is a cWebMenuBar
@@ -4133,7 +4133,7 @@ Including file: Countries.wo    (C:\Projects\LeafletTest\AppSrc\Countries.wo)
 37628>Send StartWebApp of oWebApp
 37629>
 Summary
-Memory Available: 10744328192
+Memory Available: 11368308736
 Total Warnings : 0
 Total Errors   : 0
 Total Symbols  : 24022
@@ -4141,6 +4141,6 @@ Total Resources: 0
 Total Commands : 37628
 Total Windows  : 0
 Total Pages    : 0
-Static Data    : 498753
-Message area   : 261779
+Static Data    : 498781
+Message area   : 261785
 Total Blocks   : 16906
