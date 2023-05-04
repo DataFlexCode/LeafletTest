@@ -1,15 +1,16 @@
 {
     "tokens": {
         "leafletAccessToken"    : "",
-        "locationIQKey"         : "key=",
-        "mapQuestOpenKey"       : "key=",
-        "positionStackKey"      : "access_key=",
+        "locationIQKey"         : "key="",
+        "mapQuestOpenKey"       : "key="",
+        "positionStackKey"      : "access_key="",
         "geocodeIOKey"          : "api_key=",
-        "openCageKey"           : "key=",
-        "hereKey"               : "apiKey=",
-        "trimbleKey"            : "access_key=",
-        "whatThreeWordsKey"     : "key=",
-        "googleMapsKey"         : "key="
+        "openCageKey"           : "key="",
+        "hereKey"               : "apiKey="",
+        "trimbleKey"            : "access_key="",
+        "whatThreeWordsKey"     : "key="",
+        "googleMapsKey"         : "key="",
+        "bingMapsKey"           : "key=""
     },
     "defaults": {
         "polygon": {
