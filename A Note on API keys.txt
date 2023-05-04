@@ -1,7 +1,7 @@
 A note on API keys
 ==================
 
-Although the workspace is the one I used to demonstrate the Leathere flet library functionality,
+Although the workspace is the one I used to demonstrate the Leaflet library functionality,
 there are a number of API keys which need to be used to actually get things to work.
 
 I have hidden mine in a file called Programs\config.json which is accessed by the program at
