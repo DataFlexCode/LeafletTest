@@ -11,8 +11,6 @@ Class cGeocodeIOConnector is a cGeocodeConnector
         Set psID        to "GEOCODEIO"
         Set psWebSite   to "https://www.geocod.io/"
         
-        Property Number[] panBoundingBox
-        
         // Position Stack free plan doesn't use HTTPS, so:
         Set piRemotePort    of oHttp to rpHttp
         Set peTransferFlags of oHttp to 0

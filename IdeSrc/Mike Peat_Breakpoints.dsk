@@ -8,3 +8,8 @@ Source156=Move (psText(hoElem2)) to sAuthor
 ConditionEnabled156=0
 Condition156= 
 156=1
+[C:\Projects\LeafletTest\AppSrc\cBingMapsConnector.pkg]
+Source23=Function_Return hoJson
+ConditionEnabled23=0
+Condition23= 
+23=1

@@ -23,7 +23,8 @@ Class cGeocodeConnector is a cObject
         Property Integer    piMaxZoom       22
         Property String     psDisplayName
         Property String     psWebSite
-        Property Boolean    pbFitMap True
+        Property Boolean    pbFitMap        True
+        Property Number[]   panBoundingBox
         
         Property String     psQuery
         

@@ -723,42 +723,71 @@ The first item in a new 'group'.
 /*
 Default menu items
 */
+
+.WebContextMenu .WebMenuItem > div > span.WebItm_Icon:before {
+    content: "";
+    height: 16px !important;
+    width: 16px !important;
+    position: relative;
+    display: inline-block !important;
+    vertical-align: top;
+}
+
+.WebIcon_Clear > div > span.WebItm_Icon:before,
 .WebClearMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px 0px;
 }
+
+.WebIcon_ClearAll > div > span.WebItm_Icon:before,
 .WebClearAllMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px -25px;
 }
+
+.WebIcon_Prompt > div > span.WebItm_Icon:before,
 .WebPromptMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px -50px;
 }
+
+.WebIcon_Find > div > span.WebItm_Icon:before,
 .WebFindMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px -75px;
 }
+
+.WebIcon_Next > div > span.WebItm_Icon:before,
 .WebNextMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px -100px;
 }
+
+.WebIcon_Previous > div > span.WebItm_Icon:before,
 .WebPreviousMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px -125px;
 }
+
+.WebIcon_Last > div > span.WebItm_Icon:before,
 .WebLastMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px -150px;
 }
+
+.WebIcon_First > div > span.WebItm_Icon:before,
 .WebFirstMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px -175px;
 }
+
+.WebIcon_Save > div > span.WebItm_Icon:before,
 .WebSaveMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px -200px;
 }
+
+.WebIcon_Delete span.WebItm_Icon:before,
 .WebDeleteMenuItem > div > span.WebItm_Icon{
     background-image: url('WL_ActionIcons.png');
     background-position: 0px -225px;
@@ -1881,22 +1910,20 @@ Footer
 }
 
 .WebMenuList .WebML_Divider{
-    height: 24px;
-    background-color: #181818;
-    color: #000;
-    /* font-family: 'open_sanssemibold'; */
-    font-size: 12px;
-	font-weight: bold;
-    padding: 4px;
-    
+    height: auto;
+    background-color: unset;
+    color: rgba(163, 163, 163, 0.7);
+    font-size: 70%;
+    border-bottom: 1px solid rgba(194, 194, 194, 0.5);
     text-transform: uppercase;
-    border-bottom: 0px;
-	
-	background: #ffffff;
-    background: -moz-linear-gradient(top, #ffffff 0%, #ffffff 43%, #f7f8fa 47%, #f1f2f4 100%);
-    background: -webkit-linear-gradient(top, #ffffff 0%,#ffffff 43%,#f7f8fa 47%,#f1f2f4 100%);
-    background: linear-gradient(to bottom, #ffffff 0%,#ffffff 43%,#f7f8fa 47%,#f1f2f4 100%);
-    background-size: 2px 23px;
+
+    /* Menu specific */
+    padding: 4px;
+}
+
+.WebContextMenu .WebMenuList .WebML_Divider {
+    padding: 0px;
+    padding-left: 4px;
 }
 
 .WebMenuList .WebML_Mnu{

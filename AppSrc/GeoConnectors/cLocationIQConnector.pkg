@@ -11,8 +11,6 @@ Class cLocationIQConnector is a cGeocodeConnector
         Set psName      to "Location IQ"
         Set psID        to "LOCIQ"
         Set psWebSite   to "https://locationiq.com/"
-        
-        Property Number[] panBoundingBox
     End_Procedure
     
     Function FreeQuery String sQuery Returns Handle

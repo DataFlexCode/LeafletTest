@@ -10,8 +10,6 @@ Class cOpenCageConnector is a cGeocodeConnector
         Set psName      to "OpenCage"
         Set psID        to "OPENCAGE"
         Set psWebSite   to "https://opencagedata.com/"
-        
-        Property Number[] panBoundingBox
     End_Procedure
     
     Function FreeQuery String sQuery Returns Handle

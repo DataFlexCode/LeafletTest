@@ -38,7 +38,7 @@ afterRender : function(){
     df.dom.on("keydown", this._eControl, this.onKeyDownSrv, this);
     df.dom.on("input", this._eControl, this.onInputSrv, this);
 
-    if(this.peLabelPosition === df.ciLabelFloat) {
+    if(this._eLbl && this.peLabelPosition === df.ciLabelFloat) {
         this.floatLabel(false);
         df.dom.on("click", this._eLbl, this.onFocus, this);
 

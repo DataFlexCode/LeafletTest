@@ -41,8 +41,9 @@ selectRow : function(sGotoRow, iRow, fOptHandler, tOptSelectRowData){
     If a column is in edit mode and we use validate to check the columns and save changes if we tab to the next.
     This wasn't done when using the arrow keys.
     */
-    if(oV.oEditCol && oV.oEditCol.validate) {
-        if (!oV.oEditCol.validate()) {
+    if (oV.oEditCol && oV.oEditCol.validate) {
+        // Check if the new value !== the original value with empty new rows.
+        if (oV.oEditCol.get("pbChanged") && !oV.oEditCol.validate()) {
             return false; // cancel the row move.
         }
     }

@@ -60,12 +60,12 @@ getHeightDiff : function(){
     var iHeight = 0;
     
     if(this._eHead){
-        iHeight += this._eHead.clientHeight;
+        iHeight += df.dom.clientHeight(this._eHead);
         iHeight += df.sys.gui.getVertBoxDiff(this._eHead, 1);  //  Outside difference
     }
     
     if(this.pbShowCaption && this._eLabelSpacer){
-        iHeight += this._eLabelSpacer.clientHeight;
+        iHeight += df.dom.clientHeight(this._eLabelSpacer);
         iHeight += df.sys.gui.getVertBoxDiff(this._eHead, 1);  //  Outside difference
     }
     

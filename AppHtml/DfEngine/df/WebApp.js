@@ -156,7 +156,7 @@ df.WebApp = function WebApp(sOptWebService){
     this.ready(this.attachGlobalHandlers);
     
     df.log("DataFlex Web Application Framework " + df.psVersionId);
-    df.log("Copyright 2005-2021 Data Access Corporation. All rights reserved."); 
+    df.log("Copyright 2005-2022 Data Access Corporation. All rights reserved."); 
 
 };
 df.defineClass("df.WebApp", "df.WebBaseContainer", {
@@ -175,6 +175,11 @@ create : function(){
 
 //  - - - - - - - - - Rendering - - - - - - - - -
 
+/*
+For the WebApp object the view region is the implicit center panel. Augment placePanels to create 
+the view region element and set it as the center panel. This function can be executed multiple 
+times so we make sure to only touch the DOM if nessecary.
+*/
 placePanels : function(){
     df.WebApp.base.placePanels.call(this);
     
@@ -184,7 +189,9 @@ placePanels : function(){
     this._eRegionCenter = this._eViewRegion;
     
     //  Make sure that we insert the viewregion before the clear div created by WebBaseContainer
-    this._eMainArea.insertBefore(this._eRegionCenter, this._eMainArea.lastChild);
+    if(this._eRegionCenter.parentNode != this._eMainArea || this._eRegionCenter.nextElementSibling != this._eMainArea.lastChild){
+        this._eMainArea.insertBefore(this._eRegionCenter, this._eMainArea.lastChild);
+    }
 },
 
 attachGlobalHandlers : function(){
@@ -448,7 +455,7 @@ displayApp : function(oRenderTo){
             eContent.style.visibility = "hidden";
             eRenderTo.appendChild(eContent);
             this.afterShow();
-            this.resize();
+            this.forceResize();
             eContent.style.visibility = "";
         }catch(oErr){
             this.handleError(oErr);
@@ -545,14 +552,13 @@ renderView : function(sView){
                     //  Modal dialogs are queued using the 'modal queue' to prevent them from showing on top of errors or info boxes displayed before the dialog.
                     this.queueModal(function(){
                         oView._show(this._eRegionCenter);
-                        this.sizeChanged(); // Make sure a second resize gets triggered after timeout
+                        this.forceResize();
                     }, this);
                 }else{
                     this.hideView(this._oCurrentView, (oView === this._oCurrentView));
                     
                     oView._show(this._eRegionCenter);
-                    // this.resize();
-                    this.sizeChanged(); // Make sure a second resize gets triggered after timeout
+                    this.forceResize();
 
                     this._oCurrentView = oView;
                 }
@@ -1898,7 +1904,7 @@ resize : function(){
         
         //  Views can be rendered without the webapp, so then we use the _eRenderTo element.
         if(!this._eElem && oView._eRenderTo){
-            iMxVwH = oView._eRenderTo.clientHeight - df.sys.gui.getVertBoxDiff(oView._eRenderTo, 2);
+            iMxVwH = df.dom.clientHeight(oView._eRenderTo) - df.sys.gui.getVertBoxDiff(oView._eRenderTo, 2);
         }
         
         
@@ -2006,6 +2012,9 @@ showInfoBox : function(sMessage, sCaption){
         oDialog.piMinWidth = (iWindowWidth > 420 ? 400 : iWindowWidth - 20);
         oDialog.piMinHeight = 80;   // 150;
         oDialog.psCSSClass = "WebMsgBox WebMsgBoxInfo";
+
+        const iViewArrayPos = this._aViews.length;
+        that._aViews.push(oDialog);
         
         oDialog.OnSubmit.addListener(function(oEvent){
             oDialog.hide();
@@ -2016,11 +2025,12 @@ showInfoBox : function(sMessage, sCaption){
             setTimeout(function(){
                 try{
                     that.processModal();
+                    oDialog.destroy();
+                    that._aViews.splice(iViewArrayPos, 1);
                 }catch(oErr){
                     that.handleError(oErr);
                 }
                 
-                oDialog.destroy();
             }, 20);
             
         }, this);
@@ -2120,20 +2130,24 @@ showMsgBox : function(sMessage, sCaption, sLabelCSSClass, aButtons, iDefaultButt
         oDialog = new df.WebModalDialog(null, this);
         oDialog.psCaption = sCaption;
         oDialog.piMinWidth = (iWindowWidth > 500 ? 480 : iWindowWidth - 20);
-        oDialog.piMinHeight = 80;    // 150;
+        oDialog.piMinHeight = 100;    // 150;
         oDialog.pbShowClose = false;
         oDialog.psCSSClass = ("WebMsgBox " + sLabelCSSClass);
+        
+        const iViewArrayPos = this._aViews.length;
+        that._aViews.push(oDialog);
         
         oDialog.OnHide.addListener(function(oEvent){
             tDetails.bFinished = true;
             setTimeout(function(){
                 try{
                     that.processModal();
+                    oDialog.destroy();
+                    that._aViews.splice(iViewArrayPos, 1);
                 }catch(oErr){
                     that.handleError(oErr);
                 }
                 
-                oDialog.destroy();
             }, 20);
             
         }, this);
@@ -2494,6 +2508,9 @@ handleError : function(oError){
         oDialog.piMinWidth = (iWindowWidth > 520 ? 500 : iWindowWidth - 20);
         oDialog.piMinHeight = (oError.bUserError ? 80 : 180);    // (oError.bUserError ? 150 : 240);
         oDialog.psCSSClass = (oError.bUserError ? "WebMsgBox WebMsgBoxWarning" : "WebMsgBox WebMsgBoxError");
+
+        const iViewArrayPos = this._aViews.length;
+        that._aViews.push(oDialog);
         
         oDialog.OnSubmit.addListener(function(oEvent){
             try{
@@ -2506,7 +2523,14 @@ handleError : function(oError){
         oDialog.OnHide.addListener(function(oEvent){
             tDetails.bFinished = true;
             setTimeout(function(){
-                that.processModal();
+                try{
+                    that.processModal();
+                    oDialog.destroy();
+                    that._aViews.splice(iViewArrayPos, 1);
+                }catch(oErr){
+                    that.handleError(oErr);
+                }
+                
             }, 20);
         }, this);
         

@@ -7,3 +7,6 @@
 5="sFile"
 6="psXML(hoDoc)"
 7="psText(hoElem2)"
+8="UcharArrayToString(pUcaData(oHttp))"
+9="psKey(self)"
+10="pnlat(self)"

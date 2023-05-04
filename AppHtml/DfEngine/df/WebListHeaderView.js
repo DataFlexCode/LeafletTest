@@ -97,7 +97,6 @@ createHeaderMenu : function () {
 
     if (this.oL.pbAllowColumnHiding) {
         this._oHeaderMenuColumnList = this._oHeaderMenu.createMenuItem(oWebApp.getTrans("weblist_HeaderMenuSelectorMenuName"));
-        this._oHeaderMenuColumnList.create();
         this._oHeaderMenu.addChild(this._oHeaderMenuColumnList);
     }
 
@@ -106,7 +105,6 @@ createHeaderMenu : function () {
         this.oL.restoreColumnMapperDefaults(true); // Restore and redraw.
         this.oL.triggerLayoutChange(this._oHeaderMenuRestore);
     }, this);
-    this._oHeaderMenuRestore.create();
     this._oHeaderMenu.addChild(this._oHeaderMenuRestore);
 
     this._oHeaderMenu.create();
@@ -117,16 +115,16 @@ createHeaderMenu : function () {
     document.body.appendChild(this._oHeaderMenu._eElem);
 },
 
-changeColumnReorderingState : function (bVal) {
-    const onHeadMouseDownWithDraggingProxy = function (oEv) {
-        this.onHeadMouseDown(oEv, true);
-    };
+onHeadMouseDownWithDraggingProxy : function (oEv) {
+    this.onHeadMouseDown(oEv, true);
+},
 
+changeColumnReorderingState : function (bVal) {
     if (bVal &&
         !df.sys.isMobile) {
-        df.dom.on("dragstart", this.eHead, onHeadMouseDownWithDraggingProxy, this);
+        df.dom.on("dragstart", this.eHead, this.onHeadMouseDownWithDraggingProxy, this);
     } else {
-        df.dom.off("dragstart", this.eHead, onHeadMouseDownWithDraggingProxy, this);
+        df.dom.off("dragstart", this.eHead, this.onHeadMouseDownWithDraggingProxy, this);
     }
 
     this.recreateHeaderMenu();

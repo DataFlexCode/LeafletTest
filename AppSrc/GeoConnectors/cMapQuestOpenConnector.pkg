@@ -11,8 +11,6 @@ Class cMapQuestOpenConnector is a cGeocodeConnector
         Set psName      to "Open MapQuest"
         Set psID        to "OMAPQ"
         Set psWebSite   to "https://developer.mapquest.com/"
-        
-        Property Number[] panBoundingBox
     End_Procedure
     
     Function FreeQuery String sQuery Returns Handle

@@ -577,10 +577,10 @@ df.uploadFilesProgressDialog = function(oOpts){
         if(oDialog){
             oDialog.hide();
             oDialog.destroy();
-            oDialog.OnEscape.removeListener(onCancel);
+            oDialog.OnEscape.removeListener(onCancel, this);
             
             if(oCancelBtn){
-                oCancelBtn.OnClick.removeListener(onCancel);
+                oCancelBtn.OnClick.removeListener(onCancel, this);
             }    
             
             oDialog = null;

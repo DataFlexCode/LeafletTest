@@ -1036,7 +1036,7 @@ genNumMask : function(){
 
         if(sNewVal !== sValue){
             this._eControl.value = sNewVal;
-            console.log("correctNumeric update '" + sValue + "' => '" + sNewVal + "+' :" + iCarret + "");
+            // console.log("correctNumeric update '" + sValue + "' => '" + sNewVal + "+' :" + iCarret + "");
             df.dom.setCaretPosition(this._eControl, iCarret);
         }
     }

@@ -103,6 +103,7 @@ causes this method to be called regardless whether it was already hidden.
 */
 _hide : function(bFirst){
     if(this._eElem){
+        this._eElem.style.visibility = "hidden";
         df.dom.addClass(this._eElem, "WebAcCard_Hidden");
         df.dom.removeClass(this._eElem, "WebAcCard_Visible");
         df.dom.removeClass(this._eBtn, "WebTab_Current");
@@ -143,14 +144,13 @@ _show : function(bFirst){
         this._oParent.resize();
     }
     
-    
     if(this._eElem){
+        this._eElem.style.visibility = "inherit";
         df.dom.addClass(this._eElem, "WebAcCard_Visible");
         df.dom.removeClass(this._eElem, "WebAcCard_Hidden");
         df.dom.addClass(this._eBtn, "WebTab_Current");
         this._eElem.style.height = this._oParent.getCardHeight(this) + "px";
     }
-    
     
     if(!bFirst && !this._bCurrent){
         this.fire('OnShow');

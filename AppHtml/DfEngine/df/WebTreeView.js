@@ -14,7 +14,7 @@ Revisions:
         Refactored the original AjaxTreeView and TreeView classes from the AJAX Library into a 
         single WebTreeView class. The new class is part of the new web framework for VDF 17.1.
 */
-
+/* global df */
 df.tWebTreeItem = {
     sId             : df.tString,
     sParentId       : df.tString, 
@@ -1464,6 +1464,8 @@ initDraggableElements : function() {
 initDropZones : function () {
     this._aDropZones = [];
 
+    df.WebList.base.initDropZones.call(this);
+
     if (this.isSupportedDropAction(df.dropActions.WebTreeView.ciDropOnFolder) || 
         this.isSupportedDropAction(df.dropActions.WebTreeView.ciDropOnItem)) {
             
@@ -1474,29 +1476,28 @@ initDropZones : function () {
 },
 
 determineDropCandidate : function(oEv, aHelpers) {
-    let eElem = document.elementFromPoint(oEv.e.x, oEv.e.y);
+    // DropOnControl and other drop actions cannot exist within the same control simultaneously
+    // It makes sense to check for this first to get it out of the way as it is the simplest check
+    if(aHelpers.find(oHelper => oHelper.supportsDropAction(this, df.dropActions.WebControl.ciDropOnControl))){
+        return [this._eElem, df.dropActions.WebControl.ciDropOnControl] ;
+    }
 
-    if(this._eElem.contains(eElem)){
-        while (eElem != this._eElem) {
-            if (eElem.hasAttribute('data-dftree-id')) {
-                let id = eElem.getAttribute('data-dftree-id');
-                let item = this.getNodeById(id);
-                if (item.bFolder) {
-                    for (let i = 0; i < aHelpers.length; i++) {
-                        if (aHelpers[i].supportsDropAction(this, df.dropActions.WebTreeView.ciDropOnFolder)) {
-                            return [eElem, df.dropActions.WebTreeView.ciDropOnFolder];
-                        }
-                    }
-                } else {
-                    for (let i = 0; i < aHelpers.length; i++) {
-                        if (aHelpers[i].supportsDropAction(this, df.dropActions.WebTreeView.ciDropOnItem)) {
-                            return [eElem, df.dropActions.WebTreeView.ciDropOnItem];
-                        }
-                    }
-                }      
+    const eElem = document.elementFromPoint(oEv.e.clientX, oEv.e.clientY);
+    let eNode = eElem?.closest('tr[data-dftree-id]');
+
+    if(eNode){
+        // console.log(eNode);
+        let id = eNode.getAttribute('data-dftree-id');
+        let item = this.getNodeById(id);
+        if (item.bFolder) {
+            if(aHelpers.find(oHelper => oHelper.supportsDropAction(this, df.dropActions.WebTreeView.ciDropOnFolder))){
+                return [eNode, df.dropActions.WebTreeView.ciDropOnFolder];
             }
-            eElem = eElem.parentNode;
-        }
+        } else {
+            if(aHelpers.find(oHelper => oHelper.supportsDropAction(this, df.dropActions.WebTreeView.ciDropOnItem))){
+                return [eNode, df.dropActions.WebTreeView.ciDropOnItem];
+            }
+        }      
     }
 
     return [null, null];
@@ -1506,10 +1507,26 @@ determineDropPosition : function(oEv, eElem) {
     return df.dropPositions.ciDropOn;
 },
 
-doEmptyInteraction : function(dropZone) {
-    // Insert empty tree item...
+interactWithDropElem : function(dropZone, eElem) {
+    if (dropZone._eDropAction == df.dropActions.WebControl.ciDropOnControl) {
+        dropZone.highlightElement();
+    } else {
+        // Can add custom visual interaction here later if needed
+        dropZone.highlightElement();
+    }
+},
 
-    return df.dropActions.ciDropOnRoot;
+doEmptyInteraction : function(dropZone) {
+    if (this.isSupportedDropAction(df.dropActions.WebTreeView.ciDropOnRoot)) {
+        // Can do custom visual interaction here later if needed
+        dropZone.highlightElement();
+        return df.dropActions.WebTreeView.ciDropOnRoot;
+    } else if (this.isSupportedDropAction(df.dropActions.WebControl.ciDropOnControl)) {
+        dropZone.highlightElement();
+        return df.dropActions.WebControl.ciDropOnControl;
+    }
+
+    return null;
 },
 
 onControlDragOver : function (oEv, oDropZone, eDropElem) {

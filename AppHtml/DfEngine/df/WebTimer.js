@@ -65,8 +65,8 @@ destroy : function(){
     df.WebTimer.base.destroy.call(this);
 
     if(this._oView){
-        this._oView.OnShow.off(this.showView);
-        this._oView.OnHide.off(this.hideView);
+        this._oView.OnShow.off(this.showView, this);
+        this._oView.OnHide.off(this.hideView, this);
     }
 },
 

@@ -123,7 +123,6 @@ body {
 .WebApp.WebContainer{
     height: 100%;
     overflow: auto;
-    -webkit-overflow-scrolling: touch;
 }
 
 .WebApp .WebApp_ViewRegion{
@@ -926,6 +925,10 @@ div.WebCardContainer > div > div > div  > .WebCard > .WebCon_Sizer > .WebCon_Con
 
 .WebCC_Swipable{
     touch-action: pan-y;
+}
+
+.WebCC_Swipable > .WebContainer{
+    overflow-x: visible;
 }
 
 /* - - - - - - WebCommandBar - - - - - - */
@@ -2095,7 +2098,8 @@ li.Web_Disabled > div {
     transition: max-height 0.4s cubic-bezier(.17,.67,.13,.97);
 }
 .WebGroup.WebGrp_Collapsible > .WebCon_Inner > div > .WebContainer{
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 .WebGroup.WebGrp_Expanded > .WebCon_Inner > div > .WebContainer{
     max-height: 1200px;
@@ -2105,6 +2109,7 @@ li.Web_Disabled > div {
 }
 .WebGroup.WebGrp_Collapsed > .WebCon_Inner > div > .WebContainer{
     max-height: 0px;
+    overflow-x: hidden;
 }
 .WebGroup.WebGrp_Collapsible.Web_Enabled > .WebCon_Inner > div > .WebContainer > .WebCon_Sizer{
     transition: visibility 0s linear 0.4s;
@@ -2545,10 +2550,11 @@ li.Web_Disabled > div {
     /* border: 1px dashed blue; */
     background: #DAE7F8 !important;
 }
-  
+
 .WebCon_DropZone {
-    border: 2px solid #3E90E1 !important;
-    /* background: #DAE7F8 !important; */
+    outline: #3E90E1 2px solid;
+    z-index: 500;
+    position: relative;
 }
   
 .WebCon_DragHover,
@@ -2564,7 +2570,4 @@ li.Web_Disabled > div {
 .WebList_DropPlaceHolder {
     height: 50px;
     width: 100%;    
-}
-.WebTgf_DropPlaceHolder {
-    padding: 3px 15px !important;
 }

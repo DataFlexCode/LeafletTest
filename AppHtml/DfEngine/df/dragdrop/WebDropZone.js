@@ -22,9 +22,16 @@ df.defineClass("df.WebDropZone", {
   unhighlight : function() {
     df.dom.removeClass(this._eZone, "WebCon_DropZone");
     this.detachHandlers();
+    this.removeDropElemInteractions();
     
     // Remove responsible helpers
     this._aHelpers = [];
+
+    // Cleanup
+    this._eDropPosition = -1;
+    this._eDropElem = null;
+    this._eDropAction = -1;
+    this._iEnterCount = 0;
   },
 
   destroy : function () {

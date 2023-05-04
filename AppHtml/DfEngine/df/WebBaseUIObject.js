@@ -772,10 +772,8 @@ initDropZones : function () {
 },
 
 determineDropCandidate : function(oEv, aHelpers) {
-    for (let i = 0; i < aHelpers.length; i++) {
-        if (aHelpers[i].supportsDropAction(this, df.dropActions.WebControl.ciDropOnControl)) {
-            return [this._eElem, df.dropActions.WebControl.ciDropOnControl] ;
-        }
+    if(aHelpers.find(oHelper => oHelper.supportsDropAction(this, df.dropActions.WebControl.ciDropOnControl))){
+        return [this._eElem, df.dropActions.WebControl.ciDropOnControl] ;
     }
 
     return [null, null];

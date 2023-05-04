@@ -11,6 +11,7 @@ Revision:
     2012/01/09  (HW, DAW) 
         Initial version.
 */
+/* global df */
 df.WebCheckbox = function WebCheckbox(sName, oParent){
     df.WebCheckbox.base.constructor.call(this, sName, oParent);
     
@@ -142,6 +143,9 @@ set_psToolTip : function(sVal){
     df.WebCheckbox.base.set_psToolTip.call(this, sVal);
     if(this._eFakeBox){
         this._eFakeBox.title = sVal;
+    }
+    if(this._eCaption){
+        this._eCaption.title = sVal;
     }
 },
 

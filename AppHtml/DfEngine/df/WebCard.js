@@ -247,16 +247,20 @@ set_pbVisible : function(bVal){
         //  Update property because it will be used by hideCard and showCard
         this.pbVisible = bVal;
         
-        //  Make sure that we end up with a 'valid' situation
-        if(!bVal){
-            if(this._bCurrent){
-                this._oParent.hideCard(this);
+        //  Wait for all processing to be done and then make sure that we end up with a 'valid' situation
+        this.getWebApp().waitForCall(function(){
+            if(!bVal){
+                if(this._bCurrent){
+                    this._oParent.hideCard(this);
+                }
+            }else{
+                if(!this._oParent._oCurrent){
+                    this._oParent.showCard(this);
+                }
             }
-        }else{
-            if(!this._oParent._oCurrent){
-                this._oParent.showCard(this);
-            }
-        }
+
+            this.getWebApp().forceResize();
+        }, this);
     }
 },
 
@@ -279,6 +283,8 @@ set_pbRender : function(bVal){
                         this._oParent.showCard(this);
                     }
                 }
+
+                this.getWebApp().forceResize();
             }, this);
         }
     }

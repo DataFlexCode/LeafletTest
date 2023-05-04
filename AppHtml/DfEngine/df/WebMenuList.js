@@ -144,7 +144,7 @@ genMenuHtml : function(aHtml, aMenu, bSub){
         
         //  Generate group divider
         if(tItem.bBeginGroup){
-            aHtml.push('<li class="WebML_Divider">', (tItem.sGroupCaption || "&nbsp;"), '</li>');
+            aHtml.push('<li class="WebML_Divider">', (tItem.sGroupCaption || ""), '</li>');
         }
         
         //  Generate item elements

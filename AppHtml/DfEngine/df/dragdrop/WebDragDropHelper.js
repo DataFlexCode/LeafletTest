@@ -116,6 +116,7 @@ df.defineClass("df.WebDragDropHelper", "df.WebObject",{
 
     onDragEnd : function(oEv) {
         this.cleanupHelper();
+        df.dragdrop.stopDropZones();
     },
 
     cleanupHelper : function() {

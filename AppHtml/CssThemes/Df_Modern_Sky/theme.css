@@ -2135,15 +2135,20 @@ li.Web_Disabled > div {
 }
 
 .WebMenuList .WebML_Divider{
-    height: 24px;
-    background-color: #313F54;
-    color: #FFFFFF;
-    /* font-family: 'open_sanssemibold'; */
-    font-size: 12px;
-    padding: 4px;
-    
+    background-color: unset;
+    height: auto;
+    color: rgba(49,63,84, 0.7);
+    font-size: 70%;
     text-transform: uppercase;
-    border-bottom: 0px;
+    border-bottom: 1px solid rgba(49,63,84, 0.5);
+
+    /* Menu specific */
+    padding: 4px;
+}
+
+.WebContextMenu .WebMenuList .WebML_Divider {
+    padding: 0px;
+    padding-left: 4px;
 }
 
 .WebMenuList .WebML_Mnu{
@@ -2468,56 +2473,107 @@ span.WebItm_Icon:before,
 }
 
 /* INDIVIDUAL ICONS */
+
+.WebIcon_Clear:before,
+.WebIcon_Clear button:before,
+button.WebIcon_Clear:before,
+.WebIcon_Clear > div > span.WebItm_Icon:before,
 .WebClearMenuItem > div > span.WebItm_Icon:before {
     content: "&";
     font-size: 21px;
     margin: 0px 0 0 1px;
 }
+
+.WebIcon_ClearAll:before,
+.WebIcon_ClearAll button:before,
+button.WebIcon_ClearAll:before,
+.WebIcon_ClearAll > div > span.WebItm_Icon:before,
 .WebClearAllMenuItem > div > span.WebItm_Icon:before {
     content: "*"; 
     font-size: 21px;
     margin: 0px 0 0 1px;
 }
+
+.WebIcon_Prompt:before,
+.WebIcon_Prompt button:before,
+button.WebIcon_Prompt:before,
+.WebIcon_Prompt > div > span.WebItm_Icon:before,
 .WebPromptMenuItem > div > span.WebItm_Icon:before {
     content: "A"; 
     font-size: 20px;
     margin: 0px 0 0 0px;
 }
+
+.WebIcon_Find:before,
+.WebIcon_Find button:before,
+button.WebIcon_Find:before,
+.WebIcon_Find > div > span.WebItm_Icon:before,
 .WebFindMenuItem > div > span.WebItm_Icon:before {
     content: "r"; 
     font-size: 20px;
     margin: 0px 0 0px 0px;
 }
+
+.WebIcon_Next:before,
+.WebIcon_Next button:before,
+button.WebIcon_Next:before,
+.WebIcon_Next > div > span.WebItm_Icon:before,
 .WebNextMenuItem > div > span.WebItm_Icon:before {
     content: "q"; 
     font-size: 17px;
     margin: 2px 0 0 1px;
 }
+
+.WebIcon_Previous:before,
+.WebIcon_Previous button:before,
+button.WebIcon_Previous:before,
+.WebIcon_Previous > div > span.WebItm_Icon:before,
 .WebPreviousMenuItem > div > span.WebItm_Icon:before {
     content: "p"; 
     font-size: 17px;
     margin: 2px 3px 0 0px;
 }
+
+.WebIcon_Last:before,
+.WebIcon_Last button:before,
+button.WebIcon_Last:before,
+.WebIcon_Last > div > span.WebItm_Icon:before,
 .WebLastMenuItem > div > span.WebItm_Icon:before {
     content: "o"; 
     font-size: 17px;
     margin: 2px 0px 0 1px;
 }
+
+.WebIcon_First:before,
+.WebIcon_First button:before,
+button.WebIcon_First:before,
+.WebIcon_First > div > span.WebItm_Icon:before,
 .WebFirstMenuItem > div > span.WebItm_Icon:before {
     content: "n";
     font-size: 17px;
     margin: 2px 2px 0 0px;
 }
+
+.WebIcon_Save:before,
+.WebIcon_Save button:before,
+button.WebIcon_Save:before,
+.WebIcon_Save > div > span.WebItm_Icon:before,
 .WebSaveMenuItem > div > span.WebItm_Icon:before {
     content: "8"; 
     font-size: 20px;
     margin: 1px 0 0 0px;
 }
+
+.WebIcon_Delete:before,
+.WebIcon_Delete button:before,
+button.WebIcon_Delete:before,
+.WebIcon_Delete > div > span.WebItm_Icon:before,
 .WebDeleteMenuItem > div > span.WebItm_Icon:before {
     content: "4"; 
     font-size: 21px;
     margin: 0px 0 0 0px;
 }
+
 .WebLoginMenuItem > div > span.WebItm_Icon:before {
     content: "7"; 
     font-size: 16px;

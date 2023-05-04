@@ -28,9 +28,6 @@ df.WebContextMenu = function WebContextMenu(sName, oParent){
     this.prop(df.tBool, "pbAllowHtml");
     this.prop(df.tString, "psGroupName");
     this.prop(df.tBool, "pbShowIcons", false);
-    
-    this.addSync("psContextCSSSelector");
-    this.addSync("psContextValue");
 
     this.event("OnContextMenuOpen", df.cCallModeDefault, "privateOnContextMenuOpen");
     this.event("OnItemClick");
@@ -61,7 +58,7 @@ df.defineClass("df.WebContextMenu", "df.WebFloatingPanel", {
             } else if (this.psControlName.length > 0) {
                 this._oRootControl = this.getWebApp().findObj(this.psControlName);
             } else {
-                throw new df.Error(999, "WebContextMenu requires either a set psControlName or a phoControl; if you wish to use the whole window, use the psControlName 'window'.");
+                this._oRootControl = this.getWebApp();
             }
 
             if (!this._oRootControl)
@@ -155,15 +152,16 @@ df.defineClass("df.WebContextMenu", "df.WebFloatingPanel", {
 
     // Interface by the cWebMenuList that makes the floating panel hide after a click inside.
     hideMenu : function () {
+        df.events.removeDomCaptureListener("click", document, this.onClickGeneral, this);
+        df.events.removeDomCaptureListener("contextmenu", document, this.hideMenu, this);
         this.hide();
     },
 
     ////////////////////////////////////////////////////////////////
 
     create : function(){
-        // Set the psControlName to the default value, if it is not null.
-        if (this.psControlName.length > 0) 
-            this.set_psControlName(this.psControlName, true);
+        // Set the psControlName to the default value.
+        this.set_psControlName(this.psControlName, true);
 
         // Let's create our weblist.
         this._oMenu = new df.WebMenuList("MenuList", this);
@@ -268,6 +266,7 @@ df.defineClass("df.WebContextMenu", "df.WebFloatingPanel", {
                 throw new df.Error(999, "WebContextMenu's assinged control does not support the desired peContext.");
 
             this.psContextCSSSelector = sCSSSelector;
+            this.addSync("psContextCSSSelector");
         }
 
         // Attach
@@ -380,8 +379,8 @@ df.defineClass("df.WebContextMenu", "df.WebFloatingPanel", {
         if(this._eElem.contains(oEv.getTarget())){
             return;
         }
-        df.dom.off("click", document, this.onClickGeneral, this);
-        df.dom.off("contextmenu", document, this.hideMenu, this);
+        df.events.removeDomCaptureListener("click", document, this.onClickGeneral, this);
+        df.events.removeDomCaptureListener("contextmenu", document, this.hideMenu, this);
         this.hideMenu();
     },
 
@@ -432,8 +431,19 @@ df.defineClass("df.WebContextMenu", "df.WebFloatingPanel", {
                     throw new df.Error(999, "WebContextMenu could not convert the determined Value returned by the assigned control.");
                 }
             } else {
-                this.psContextValue = "";
+                // Get the clicked element.
+                let eTarget = oEvent.getTarget();
+                // From there go up to find the first control (in which case it came from that control).
+                while (eTarget != this._oRootControl._eElem &&
+                       !eTarget.hasAttribute("data-dfobj")) {
+                    eTarget = eTarget.parentNode;
+                }
+                // Should something go wrong we have a failsafe, but in practically every case we get the dfobj which equals the object name.
+                this.psContextValue = eTarget.hasAttribute("data-dfobj") ? 
+                                        eTarget.getAttribute("data-dfobj") :
+                                        "";
             }
+            this.addSync("psContextValue");
             
             df.events.addDomCaptureListener("click", document, this.onClickGeneral, this);
             df.events.addDomCaptureListener("contextmenu", document, this.hideMenu, this);

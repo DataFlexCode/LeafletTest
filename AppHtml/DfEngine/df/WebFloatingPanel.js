@@ -68,8 +68,8 @@ create : function(){
     //  Check if we are in a view, if so we listen to its OnShow and OnHide events, else we just start it
     var oView = this.getView();
     if(oView){
-        oView.OnAfterShow.addListener(this.showView, this);
-        oView.OnAfterHide.addListener(this.hideView, this);
+        oView.OnAfterShow.on(this.showView, this);
+        oView.OnAfterHide.on(this.hideView, this);
         this._bViewVisible = oView._bShown;
     }else{
         this._bViewVisible = true;
@@ -77,6 +77,21 @@ create : function(){
     
     df.WebFloatingPanel.base.create.apply(this, arguments);
 },   
+
+/*
+DF20.1 We forgot to remove the afterShow and afterHide event listener.
+
+@private
+*/
+destroy : function() {
+    var oView = this.getView();
+    if(oView){
+        oView.OnAfterShow.off(this.showView, this);
+        oView.OnAfterHide.off(this.hideView, this);
+    }
+
+    df.WebFloatingPanel.base.destroy.apply(this, arguments);
+},
 
 /* 
 Augment the rendering and insert the element at root level. Don't return the element since the 
@@ -473,8 +488,8 @@ Augment setInnerHeight to make sure the container element size is leading.
 */
 setInnerHeight : function(iHeight){
     //  ToDo: This is probably not the best way of doing this as the case where a scrollbar would actually be needed might be ruined by this
-    if(iHeight > this._eContainer.clientHeight){
-        iHeight = this._eContainer.clientHeight;
+    if(iHeight > df.dom.clientHeight(this._eContainer)){
+        iHeight = df.dom.clientHeight(this._eContainer);
     }
     
     df.WebFloatingPanel.base.setInnerHeight.call(this, iHeight);

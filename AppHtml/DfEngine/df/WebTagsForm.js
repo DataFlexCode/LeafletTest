@@ -10,12 +10,7 @@ Revision:
     2020/09/25  (HW, DAW)
         Initial version.
 */
-
-const wbtgOperation = {
-    wbtgAdded: 0,
-    wbtgRemoved: 1
-};
-
+/* global df */
 df.WebTagsForm = function WebTagsForm(sName, oParent) {
     df.WebTagsForm.base.constructor.call(this, sName, oParent);
 
@@ -757,7 +752,7 @@ df.defineClass("df.WebTagsForm", "df.WebBaseSelectionForm", {
             const eTextElem = (df.dom.query(oDropZone._eDropElem, '.WebTgf_Text'));
             let sTagText = '';
             if (eTextElem) {
-                sTagText = eTextElem.innerHTML;
+                sTagText = eTextElem.innerText;
             }
 
             const dropData = {
@@ -777,6 +772,8 @@ df.defineClass("df.WebTagsForm", "df.WebBaseSelectionForm", {
     initDropZones : function () {
         this._aDropZones = [];
 
+        df.WebList.base.initDropZones.call(this);
+
         if (this.isSupportedDropAction(df.dropActions.WebTagsForm.ciDropOnInput)) {
             // Mark input as drop zone
             const eZone = (df.dom.query(this._eElem, '.WebFrm_Wrapper'));
@@ -785,32 +782,35 @@ df.defineClass("df.WebTagsForm", "df.WebBaseSelectionForm", {
     },
 
     determineDropCandidate : function(oEv, aHelpers) {
-        let eElem = document.elementFromPoint(oEv.e.x, oEv.e.y);
-        let bSupported = false;
-
-        for (let i = 0; i < aHelpers.length; i++) {
-            if (aHelpers[i].supportsDropAction(this, df.dropActions.WebTagsForm.ciDropOnInput)) {
-                bSupported = true;
-                break;
-            }
-        }
-        
-        while (eElem != this._eElem) {
-            if (eElem.hasAttribute('data-dfrowid') && bSupported) {
-                return [eElem, df.dropActions.WebTagsForm.ciDropOnInput];
-            }
-            eElem = eElem.parentNode;
+        // DropOnControl and other drop actions cannot exist within the same control simultaneously
+        // It makes sense to check for this first to get it out of the way as it is the simplest check
+        if(aHelpers.find(oHelper => oHelper.supportsDropAction(this, df.dropActions.WebControl.ciDropOnControl))){
+            return [this._eElem, df.dropActions.WebControl.ciDropOnControl] ;
         }
 
-        // We want to support being able to drop when hovering anywhere in the input
-        // As a last-ditch effort, try to find the last tag and use that as the element
-        const aElems = df.dom.query(this._eElem, '.WebTgf_Tag', true);
-        if (aElems && aElems.length > 0 && bSupported) {
-            eElem = aElems[(aElems.length -1)];
-            if (eElem.hasAttribute('data-dfrowid')) {
-                return [eElem, df.dropActions.WebTagsForm.ciDropOnInput];
-            } else if (eElem.hasAttribute('data-dfdropplaceholder')) {
-                return [aElems[(aElems.length - 2)], , df.dropActions.WebTagsForm.ciDropOnInput];
+        // Check for DropOnInput
+        if(!aHelpers.find(oHelper => oHelper.supportsDropAction(this, df.dropActions.WebTagsForm.ciDropOnInput))){
+            return [null, null];
+        }
+
+        const eElem = document.elementFromPoint(oEv.e.clientX, oEv.e.clientY);
+        let eTag = eElem?.closest('.WebTgf_Tag');
+
+        if(!eTag){
+            const aElems = df.dom.query(this._eElem, '.WebTgf_Tag', true);
+            eTag = aElems.length > 0 && aElems[(aElems.length -1)] || null;
+        }
+
+        if(eTag){
+            if (eTag.hasAttribute('data-dfdropplaceholder')) {
+                if (eTag.previousElementSibling?.hasAttribute("data-dfrowid")){
+                    eTag = eTag.previousElementSibling;
+                }else if (eTag.nextElementSibling?.hasAttribute("data-dfrowid")){
+                    eTag = eTag.nextElementSibling;
+                }
+            }
+            if (eTag){
+                return [eTag, df.dropActions.WebTagsForm.ciDropOnInput];
             }
         }
         return [null, null];
@@ -820,7 +820,7 @@ df.defineClass("df.WebTagsForm", "df.WebBaseSelectionForm", {
         const oRect = df.sys.gui.getBoundRect(eElem);
         // We want to check if we are more to the left or to the right of the hovered tag
         const iMid = (oRect.right - (oRect.width / 2));
-        if (oEv.e.x >= iMid) {
+        if (oEv.e.clientX >= iMid) {
             return df.dropPositions.ciDropAfter;
         } else {
             return df.dropPositions.ciDropBefore;
@@ -828,20 +828,32 @@ df.defineClass("df.WebTagsForm", "df.WebBaseSelectionForm", {
     },
 
     interactWithDropElem : function(dropZone, eElem) {
-        let eTempElem = document.createElement('div');
-        eTempElem.innerHTML = 'DROP'; // ToDo: Translate?
-        df.dom.addClass(eTempElem, 'WebTgf_Tag WebTgf_DropPlaceHolder');
-        dropZone.insertElement(eTempElem, eElem);
+        if (dropZone._eDropAction == df.dropActions.WebControl.ciDropOnControl) {
+            dropZone.highlightElement();
+        } else {
+            let eTempElem = document.createElement('div');
+            eTempElem.innerHTML = '<span class="WebTgf_Text">DROP</span><span class="WebTgf_CloseTag">x</span> '; // ToDo: Translate?
+            df.dom.addClass(eTempElem, 'WebTgf_Tag WebTgf_DropPlaceHolder');
+            eTempElem.setAttribute('data-dfrowid', 'empty_placeholder');
+            dropZone.insertElement(eTempElem, eElem);
+        }
     },
 
     doEmptyInteraction : function(dropZone) {
-        let eTempElem = document.createElement('div');
-        eTempElem.innerHTML = 'DROP'; // ToDo: Translate?
-        df.dom.addClass(eTempElem, 'WebTgf_Tag WebTgf_DropPlaceHolder');
-        const eTargetElem = (df.dom.query(this._eElem, '.WebFrm_PromptSpacer'));
-        dropZone.insertElement(eTempElem, eTargetElem);
+        if (this.isSupportedDropAction(df.dropActions.WebTagsForm.ciDropOnInput)) {
+            let eTempElem = document.createElement('div');
+            eTempElem.innerHTML = '<span class="WebTgf_Text">DROP</span><span class="WebTgf_CloseTag">x</span> '; // ToDo: Translate?
+            df.dom.addClass(eTempElem, 'WebTgf_Tag WebTgf_DropPlaceHolder');
+            const eTargetElem = (df.dom.query(this._eElem, '.WebFrm_PromptSpacer'));
+            dropZone.insertElement(eTempElem, eTargetElem);
 
-        return df.dropActions.WebTagsForm.ciDropOnInput;
+            return df.dropActions.WebTagsForm.ciDropOnInput;
+        } else if (this.isSupportedDropAction(df.dropActions.WebControl.ciDropOnControl)) {
+            dropZone.highlightElement();
+            return df.dropActions.WebControl.ciDropOnControl;
+        }
+    
+        return null;
     },
 
     hasData : function () {

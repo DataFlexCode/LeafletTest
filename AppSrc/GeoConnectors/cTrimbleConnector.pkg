@@ -12,8 +12,6 @@ Class cTrimbleConnector is a cGeocodeConnector
         Set psID        to "TRIMBLE"
         Set psWebSite   to "https://developer.trimblemaps.com/"
         
-        Property Number[] panBoundingBox
-        
         // Position Stack free plan doesn't use HTTPS, so:
         Set piRemotePort    of oHttp to rpHttp
         Set peTransferFlags of oHttp to 0

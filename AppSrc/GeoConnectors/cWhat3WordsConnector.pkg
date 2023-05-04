@@ -11,8 +11,6 @@ Class cWhat3WordsConnector is a cGeocodeConnector
         Set psName      to "What 3 Words"
         Set psID        to "WHT3WDS"
         Set psWebSite   to "https://www.what3words.com"
-        
-        Property Number[] panBoundingBox
     End_Procedure
     
     Function FreeQuery String sQuery Returns Handle

@@ -24,13 +24,12 @@ df.defineClass("df.WebDragDropFileHelper", "df.WebDragDropUploadBase",{
 
   onDragEnd : function(oEv) {
     df.WebDragDropFileHelper.base.onDragEnd.call(this);
-    df.dragdrop.stopDropZones();
   },
 
   // OnDrop
   // Modified to call OnFileDrop on server
   onDrop : function (oEv, oSourceDfObj, oDropZone) {
-    console.log('FILE DROP');
+    // console.log('FILE DROP');
     const oDragData = this._oDragData;
     const oDropData = oDropZone.getDropData();
     const bFileDrag = df.dragdrop.containsFiles(oEv.e);

@@ -11,8 +11,6 @@ Class cHereConnector is a cGeocodeConnector
         Set psName      to "Here Geocoding"
         Set psID        to "HERE"
         Set psWebSite   to "https://www.here.com/"
-        
-        Property Number[] panBoundingBox
     End_Procedure
     
     Function FreeQuery String sQuery Returns Handle

@@ -749,7 +749,11 @@ from the global and elements registration.
 clear : function(){
     //  Deattach the listener
     if(window.addEventListener){
-        this.eElement.removeEventListener(this.sEvent, this.fHandler, false);
+        if(this.sEvent.substr(0, 8) === "capture_"){
+            this.eElement.removeEventListener(this.sEvent.substr(8), this.fHandler, true);
+        }else{
+            this.eElement.removeEventListener(this.sEvent, this.fHandler, false);
+        }
     }else{
         this.eElement.detachEvent("on" + this.sEvent, this.fHandler);
     }
@@ -1250,16 +1254,16 @@ Removes the given listener from the handler by removing it from the aListeners
 array.
 
 @param  fListener   Function that was listening to the event.
+@param  oEnvironment    The environment (this reference) in which the listeners 
+        will be called.
 */
-off : function(fListener){
+off : function(fListener, oEnv){
     var iListener;
     
     for(iListener = 0; iListener < this.aListeners.length; iListener++){
-        if(this.aListeners[iListener].fListener === fListener){
+        if(this.aListeners[iListener].fListener === fListener && this.aListeners[iListener].oEnvironment === oEnv){
             if(this.bFiring){
-                this.aListeners[iListener].fListener = null;
-            
-                this.aRemoveListeners.push(fListener);
+                this.aRemoveListeners.push(this.aListeners[iListener]);
             }else{
                 this.aListeners.splice(iListener, 1);
             }
@@ -1272,10 +1276,12 @@ Removes the given listener from the handler by removing it from the aListeners
 array.
 
 @param  fListener   Function that was listening to the event.
+@param  oEnvironment    The environment (this reference) in which the listeners 
+        will be called.
 @deprecated
 */
-removeListener : function(fListener){
-    this.off(fListener);
+removeListener : function(fListener, oEnv){
+    this.off(fListener, oEnv);
 },
 
 /*
@@ -1310,8 +1316,9 @@ fire : function(oSource, oOptions){
         this.bFiring = false;
         
         //  Remove the listeners that where placed for removal during the event execution.
-        while(this.aRemoveListeners.length > 0){
-            this.removeListener(this.aRemoveListeners.pop());
+        while (this.aRemoveListeners.length > 0){
+            let oListener = this.aRemoveListeners.pop();
+            this.off(oListener.fListener, oListener.oEnvironment);
         }
     
         return !oEvent.bCanceled;

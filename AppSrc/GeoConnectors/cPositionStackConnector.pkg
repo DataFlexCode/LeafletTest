@@ -12,8 +12,6 @@ Class cPositionStackConnector is a cGeocodeConnector
         Set psID        to "POSSTK"
         Set psWebSite   to "https://positionstack.com/"
         
-        Property Number[] panBoundingBox
-        
         // Position Stack free plan doesn't use HTTPS, so:
         Set piRemotePort    of oHttp to rpHttp
         Set peTransferFlags of oHttp to 0

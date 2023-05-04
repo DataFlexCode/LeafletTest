@@ -198,6 +198,8 @@ afterRender : function(){
         if(this._bStandalone){
             df.dom.on("resize", window, this.onWindowResize, this);
         }
+    }else{
+        this.set_piMinWidth(this.piMinWidth);
     }
     
     df.events.addDomKeyListener(this._eElem, this.onKey, this);
@@ -325,7 +327,7 @@ _hide : function(bNoServerEvents){
             }
             
             //  Remove Mask
-            this._eMask.parentNode.removeChild(this._eMask);
+            this._eMask.parentNode?.removeChild(this._eMask);
             
             //  Restore the focus, this is done by returning the focus to the invoking view, if this is a standalone window that will be the current window
             oInvoking = this.getInvoking() || oWebApp._oCurrentWindow;  //  
@@ -380,6 +382,18 @@ _hide : function(bNoServerEvents){
 /* - - - - - - - - - Public API - - - - - - - - - - */
 
 set_piMinWidth : function(iVal){
+    if(!this.pbFloating){
+        if(this._eSizer){
+            if(iVal > 0){
+                iVal -= this.getWidthDiff(true, true, false, false);
+                this._eSizer.style.minWidth =iVal + "px";
+            }else{
+                this._eSizer.style.minWidth = "";
+            }
+        }
+        this.sizeChanged();
+    }
+    
     this.piMinWidth = iVal;
     this.set_piWidth(this.piWidth);
 },
@@ -803,8 +817,8 @@ resize : function(){
     //  We have to 'fix' the size for a floating dialog else it won't behave well if the window is 
     //  resized. This is only done once when no width & height is set.
     if( this._eControlWrap && !this.piHeight && !this.piWidth && this.pbFloating){
-        this.piHeight = this._eControlWrap.clientHeight;
-        this.piWidth = this._eControlWrap.clientWidth;
+        this.piHeight = df.dom.clientHeight(this._eControlWrap);
+        this.piWidth = df.dom.clientWidth(this._eControlWrap);
         
         this._eControlWrap.style.width = this.piWidth + "px";
         this._eHeader.style.width = this.piWidth + "px";
@@ -910,7 +924,7 @@ viewResize : function(iMaxH){
         }               
     }else{
         //  For dialogs take the ehader and footer into account
-        iDiff = this._eHeader.offsetHeight + this._eBottomLeft.offsetHeight;
+        iDiff = df.dom.offsetHeight(this._eHeader) + df.dom.offsetHeight(this._eBottomLeft);
         
         //  Dialogs are only limited by the screen / window size
         iMaxH = df.dom.windowHeight() - 20;

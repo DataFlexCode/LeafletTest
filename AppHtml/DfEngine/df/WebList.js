@@ -179,6 +179,11 @@ create : function(){
     this._onModulesCreated.fire(this);
 },
 
+destroy : function () {
+    this._oHeader?.destoryHeaderMenu();
+    df.WebList.base.destroy.call(this, arguments);
+},
+
 /*
 This function returns the main storage name.
 
@@ -1195,7 +1200,7 @@ getDragData : function (oEv, eDraggedElem) {
         const itemId = eDraggedElem.getAttribute("data-dfrowid") || -1;
         let item;
         
-        if (itemId && itemId != -1 && (itemId != '' || itemId >= 0)) {
+        if (itemId && itemId != "empty" && itemId != -1 && (itemId != '' || itemId >= 0)) {
             // Destructure object to create a clone, then remove any privates - prevents circular json eror
             item = {...this._oModel.aData[(this._oModel.rowIndexByRowId(itemId))]};
             
@@ -1237,7 +1242,9 @@ getDropData : function (oDropZone, oPosition) {
 
 initDropZones : function () {
     this._aDropZones = [];
-
+    
+    df.WebList.base.initDropZones.call(this);
+    
     if (this.isSupportedDropAction(df.dropActions.WebList.ciDropOnRow)) {
         const eZone = (df.dom.query(this._eElem, '.WebList_BodyWrp'));
         this.addDropZone(eZone);
@@ -1245,59 +1252,36 @@ initDropZones : function () {
 },
 
 determineDropCandidate : function(oEv, aHelpers) {
-    let eElem = document.elementFromPoint(oEv.e.x, oEv.e.y);
-    let bSupported = false;
-    let rowElem = null, bFound = false, iIndex;
-
-    for (let i = 0; i < aHelpers.length; i++) {
-        if (aHelpers[i].supportsDropAction(this, df.dropActions.WebList.ciDropOnRow)) {
-            bSupported = true;
-            break;
-        }
+    // DropOnControl and other drop actions cannot exist within the same control simultaneously
+    // It makes sense to check for this first to get it out of the way as it is the simplest check
+    if(aHelpers.find(oHelper => oHelper.supportsDropAction(this, df.dropActions.WebControl.ciDropOnControl))){
+        return [this._eElem, df.dropActions.WebControl.ciDropOnControl] ;
     }
-    
-    while (eElem != this._eElem) {
-        if (eElem.hasAttribute('data-dfrowid')) {
-            if (eElem.getAttribute('data-dfrowid') == 'empty') {
-                if (bSupported) {
-                    let rowElem = eElem
-                    while(rowElem){
-                        if(rowElem.getAttribute('data-dfrowid') != 'empty'){
-                            return [rowElem, df.dropActions.WebList.ciDropOnRow];
-                        }
-                        rowElem = rowElem.previousElementSibling;
-                    }
-                    // We want to support being able to drop when hovering anywhere in the list
-                    // As a last-ditch effort, try to find the last row with data
-                    // const aElems = df.dom.query(this._eElem, '.WebList_Row', true);
-                    // if (aElems && aElems.length > 0 && bSupported) {
-                    //     for (let j = 0; j < aElems.length; j++){
-                    //         rowElem = aElems[j];
-                    //         bFound = false;
-                    //         iIndex = j;
-                    //         switch (rowElem.getAttribute('data-dfrowid')) {
-                    //             case 'empty':
-                    //                 iIndex = j - 1;
-                    //                 bFound = true;
-                    //                 break;
-                    //             default:
-                    //                 break;
-                    //         }
-                    //         if (bFound) {
-                    //             if (iIndex < 0) { iIndex = 0;}
-                    //             // console.log(iIndex);
-                    //             return [aElems[iIndex], df.dropActions.WebList.ciDropOnRow];
-                    //         }
-                    //     }
-                    // }
+
+    // Check for DropOnRow, no need to continue if it doesn't exist
+    if(!aHelpers.find(oHelper => oHelper.supportsDropAction(this, df.dropActions.WebList.ciDropOnRow))){
+        return [null, null];
+    }
+
+    const eElem = document.elementFromPoint(oEv.e.clientX, oEv.e.clientY);
+    let eRow = eElem?.closest('table[data-dfrowid]');
+
+    if(eRow){
+        const sRowId = eRow.getAttribute('data-dfrowid');
+
+        if(sRowId == 'empty_placeholder'){
+            return [eRow.previousElementSibling || eRow.nextElementSibling || eRow, df.dropActions.WebList.ciDropOnRow];
+        }else if (sRowId == 'empty') {
+            while(eRow){
+                const sRowId = eRow.getAttribute('data-dfrowid');
+                if(sRowId != 'empty' && sRowId != 'empty_placeholder'){
+                    return [eRow, df.dropActions.WebList.ciDropOnRow];
                 }
-            } else {
-                if (bSupported) {
-                    return [eElem, df.dropActions.WebList.ciDropOnRow];
-                }
+                eRow = eRow.previousElementSibling;
             }
+        } else {
+            return [eRow, df.dropActions.WebList.ciDropOnRow];
         }
-        eElem = eElem.parentNode;
     }
 
     return [null, null];
@@ -1307,7 +1291,7 @@ determineDropPosition : function(oEv, eElem) {
     const oRect = df.sys.gui.getBoundRect(eElem);
     // We want to check if we are more to the top or to the bottom of the hovered row
     const iMid = (oRect.bottom - (oRect.height / 2));
-    if (oEv.e.y >= iMid) {
+    if (oEv.e.clientY >= iMid) {
         return df.dropPositions.ciDropAfter;
     } else {
         return df.dropPositions.ciDropBefore;
@@ -1322,7 +1306,7 @@ onControlDragOver : function (oEv, oDropZone, eDropElem) {
 
         // Drag scroll down
         const iBottomSection = oRect.bottom - 50;
-        if (oEv.e.y <= oRect.bottom && (oEv.e.y > iBottomSection)) {            
+        if (oEv.e.clientY <= oRect.bottom && (oEv.e.clientY > iBottomSection)) {            
             const iDiffFromBottom = oRect.bottom - oEv.e.y;
             if (iDiffFromBottom < (iBottomSection * 0.5)) {
                 // accelerate scroll when closer to bottom
@@ -1335,7 +1319,7 @@ onControlDragOver : function (oEv, oDropZone, eDropElem) {
         }
         // Drag scroll up
         const iTopSection = oRect.top + 50;
-        if (oEv.e.y >= oRect.top && (oEv.e.y < iTopSection)) {            
+        if (oEv.e.clientY >= oRect.top && (oEv.e.clientY < iTopSection)) {            
             dY = -dY
             const iDiffFromTop = oEv.e.y - oRect.top;
             if (iDiffFromTop < (iTopSection * 0.5)) {
@@ -1356,33 +1340,45 @@ dragScroll : function (dY) {
 },
 
 interactWithDropElem : function(dropZone, eElem) {
-    let eTempElem = document.createElement('table');
-    df.dom.addClass(eTempElem, 'WebList_Row WebList_DropPlaceHolder');
-    eTempElem.setAttribute('data-dfrowid', 'empty');
+    if (dropZone._eDropAction == df.dropActions.WebControl.ciDropOnControl) {
+        // console.log('droponcontrol');
+        dropZone.highlightElement();
+    } else {
+        // console.log('droplistrow');
+        let eTempElem = document.createElement('table');
+        df.dom.addClass(eTempElem, 'WebList_Row WebList_DropPlaceHolder');
+        eTempElem.setAttribute('data-dfrowid', 'empty_placeholder');
 
-    const iHeight = this.getPlaceholderRowHeight();
+        const iHeight = this.getPlaceholderRowHeight();
 
-    if (iHeight && iHeight > 0) {
-        eTempElem.style.height = (String(iHeight)) + "px"
+        if (iHeight && iHeight > 0) {
+            eTempElem.style.height = (String(iHeight)) + "px"
+        }
+
+        dropZone.insertElement(eTempElem, eElem);
     }
-
-    dropZone.insertElement(eTempElem, eElem);
 },
 
 doEmptyInteraction : function(dropZone) {
-    let eTempElem = document.createElement('table');
-    df.dom.addClass(eTempElem, 'WebList_Row WebList_DropPlaceHolder');
+    if (this.isSupportedDropAction(df.dropActions.WebList.ciDropOnRow)) {
+        let eTempElem = document.createElement('table');
+        df.dom.addClass(eTempElem, 'WebList_Row WebList_DropPlaceHolder');
 
-    const iHeight = this.getPlaceholderRowHeight();
+        const iHeight = this.getPlaceholderRowHeight();
 
-    if (iHeight && iHeight > 0) {
-        eTempElem.style.height = (String(iHeight)) + "px"
+        if (iHeight && iHeight > 0) {
+            eTempElem.style.height = (String(iHeight)) + "px"
+        }
+
+        const eTargetElem = (df.dom.query(this._eElem, '.WebList_Body table'));
+        dropZone.insertElement(eTempElem, eTargetElem, df.dropPositions.ciDropBefore);
+        return df.dropActions.WebList.ciDropOnRow;
+    } else if (this.isSupportedDropAction(df.dropActions.WebControl.ciDropOnControl)) {
+        dropZone.highlightElement();
+        return df.dropActions.WebControl.ciDropOnControl;
     }
 
-    const eTargetElem = (df.dom.query(this._eElem, '.WebList_Body table'));
-    dropZone.insertElement(eTempElem, eTargetElem, df.dropPositions.ciDropBefore);
-
-    return df.dropActions.WebList.ciDropOnRow;
+    return null;
 },
 
 hasData : function () {
@@ -1391,7 +1387,7 @@ hasData : function () {
 
 getPlaceholderRowHeight : function() {
     const iAvgHeight = this._oBody.iAvgRowHeight;
-    const iFirstRowHeight =  (df.dom.query(this._eElem, '.WebList_Body table')).clientHeight;
+    const iFirstRowHeight =  df.dom.clientHeight(df.dom.query(this._eElem, '.WebList_Body table'));
     const iHeight = (iAvgHeight > 0 ? iAvgHeight : iFirstRowHeight) || 0;
 
     return iHeight;

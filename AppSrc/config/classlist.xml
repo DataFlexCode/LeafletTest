@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <classList xmlns="http://www.dataaccess.com/VisualDataFlex/2006/classlist/">
-	<VDFLibraryTimeStamp>2021-11-30T17:17:06</VDFLibraryTimeStamp>
+	<VDFLibraryTimeStamp>2022-07-27T13:41:59</VDFLibraryTimeStamp>
 	<libraries>
 		<library>
 			<libraryPath>C:\Projects\LeafletLibrary\LeafletMappingComponent-201.sws</libraryPath>
-			<libraryTimeStamp>2021-10-18T10:06:12</libraryTimeStamp>
+			<libraryTimeStamp>2021-10-18T11:06:12</libraryTimeStamp>
 			<libraryID>Lib1</libraryID>
 		</library>
 	</libraries>

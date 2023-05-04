@@ -11,8 +11,6 @@ Class cGoogleMapsConnector is a cGeocodeConnector
         Set psName      to "Google Maps"
         Set psID        to "GOOGLEMAPS"
         Set psWebSite   to "https://developers.google.com/maps"
-        
-        Property Number[] panBoundingBox
     End_Procedure
     
     Function FreeQuery String sQuery Returns Handle

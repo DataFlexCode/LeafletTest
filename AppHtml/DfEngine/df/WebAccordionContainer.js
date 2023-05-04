@@ -238,7 +238,7 @@ getCardHeight : function(oCard, iNaturalHeight){
     
     if(this.pbAutoHeight || this.pbFillHeight){
         if(this.piHeight > 0 || this.pbFillHeight){
-            iHeight = this._eControl.clientHeight;
+            iHeight = df.dom.clientHeight(this._eControl);
             
             iHeight -= df.sys.gui.getVertBoxDiff(this._eControl, 2);
             
@@ -253,7 +253,7 @@ getCardHeight : function(oCard, iNaturalHeight){
             return this.getNaturalHeight() - this.getHeightDiff();
         }
     }else{
-        return (oCard && oCard._eSizer.clientHeight) || 0;
+        return (oCard && df.dom.clientHeight(oCard._eSizer)) || 0;
     }
     
 },

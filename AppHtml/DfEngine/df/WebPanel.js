@@ -27,6 +27,7 @@ Revision:
     2011/08/02  (HW, DAW) 
         Initial version.
 */
+/* global df */
 df.WebPanel = function WebPanel(sName, oParent){
     df.WebPanel.base.constructor.call(this, sName, oParent);
     

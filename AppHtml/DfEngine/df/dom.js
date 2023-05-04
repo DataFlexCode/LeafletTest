@@ -825,6 +825,46 @@ animFrame : function(fCallback, oEnv){
             fCallback.call(oEnv || this);
         }, 40);
     }
+},
+
+/*
+Returns the offsetHeight for a DOM element. The offsetHeight is the full height of the element 
+including borders margins & paddings. 
+
+Note that this method includes the fraction and does not round like the offsetHeight property!
+*/
+offsetHeight : function(eElem){
+    return eElem?.getBoundingClientRect().height || 0;
+},
+
+/*
+Returns the clientHeight for a DOM element. The clientHeight is the height of the element without 
+margin and border. The clientHeight does include the padding. 
+
+Note that this method includes the fraction and does not round like the clientHeight property!
+*/
+clientHeight : function(eElem){
+    return df.dom.offsetHeight(eElem) - ((eElem?.offsetHeight || 0) - (eElem?.clientHeight || 0));
+},
+
+/*
+Returns the offsetWidth for a DOM element. The offsetWidth is the full width of the element 
+including borders margins & paddings. 
+
+Note that this method includes the fraction and does not round like the offsetWidth property!
+*/
+offsetWidth : function(eElem){
+    return eElem?.getBoundingClientRect().width || 0;
+},
+
+/*
+Returns the clientWidth for a DOM element. The clientWidth is the height of the element without 
+margin and border. The clientWidth does include the padding. 
+
+Note that this method includes the fraction and does not round like the clientWidth property!
+*/
+clientWidth : function(eElem){
+    return df.dom.offsetWidth(eElem) - ((eElem?.offsetWidth || 0) - (eElem?.clientWidth || 0));
 }
 
 };

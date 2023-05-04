@@ -340,7 +340,7 @@ getVertHeightDiff : function(){
     var iResult = 0;
 
     //  If the label is on top we reduce that (note that this means that piMinHeight and piHeight are including the label)
-    if(this.peLabelPosition === df.ciLabelTop && this._eLbl){
+    if((this.peLabelPosition === df.ciLabelTop || this.peLabelPosition === df.ciLabelFloat) && this._eLbl){
         iResult += this._eLbl.offsetHeight;
     }
     

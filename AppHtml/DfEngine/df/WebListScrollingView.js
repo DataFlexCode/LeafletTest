@@ -910,7 +910,7 @@ setHeight : function(iHeight){
     
     //  Set the height on the grid body
     this.eBody.style.height = iHeight + "px";
-    this.eScrollbar.style.height = (this.eTableWrp.clientHeight || iHeight || 0) + "px";
+    this.eScrollbar.style.height = (df.dom.clientHeight(this.eTableWrp) || iHeight || 0) + "px";
 },
 
 /* 

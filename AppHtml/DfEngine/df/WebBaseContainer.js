@@ -17,6 +17,7 @@ Revision:
     2013/11/11  (HW, DAW)
         Refactored into a mixin to support the new WebGroup.
 */
+/*global df*/
 df.WebBaseContainer_mixin = function WebBaseContainer_mixin(sName, oParent){
     this.getBase("df.WebBaseContainer_mixin").constructor.call(this, sName, oParent);
     
@@ -414,6 +415,15 @@ unrenderChild : function(oChild) {
 Loops over the panels and assigns them to the proper regions moving their DOM elements to the right 
 place. Is called from preparesize when positioning has changed and during initialization.
 
+The dom structure is:
+
+_eRegionTop
+_eMainPanel
+    _eRegionLeft    (no specific order)
+    _eRegionCenter  (no specific order)
+    _eRegionRight   (no specific order)
+_eRegionBottom
+
 @private
 */
 placePanels : function(){
@@ -442,7 +452,9 @@ placePanels : function(){
             this._oRegionCenter = oPnl;
             
             this._eRegionCenter = ePnl = oPnl._eElem;
-            this._eMainArea.appendChild(ePnl);
+            if(ePnl.parentNode != this._eMainArea){
+                this._eMainArea.appendChild(ePnl);
+            }
             
             ePnl.style.position = "absolute";
             ePnl.style.top = "0px";
@@ -457,7 +469,9 @@ placePanels : function(){
             this._oRegionTop = oPnl;
             
             this._eRegionTop = ePnl = oPnl._eElem;
-            this._eMainArea.parentNode.insertBefore(ePnl, this._eMainArea);
+            if(ePnl.parentNode != this._eMainArea.parentNode || ePnl.nextElementSibling != this._eMainArea){
+                this._eMainArea.parentNode.insertBefore(ePnl, this._eMainArea);
+            }
             
             ePnl.style.position = "";
             ePnl.style.top = "";
@@ -471,7 +485,9 @@ placePanels : function(){
         
             this._oRegionLeft = oPnl;
             this._eRegionLeft = ePnl = oPnl._eElem;
-            this._eMainArea.appendChild(ePnl);
+            if(ePnl.parentNode != this._eMainArea){
+                this._eMainArea.appendChild(ePnl);
+            }
             
             ePnl.style.position = "absolute";
             ePnl.style.top = "0px";
@@ -486,7 +502,9 @@ placePanels : function(){
             this._oRegionRight = oPnl;
             
             this._eRegionRight = ePnl = oPnl._eElem;
-            this._eMainArea.appendChild(ePnl);
+            if(ePnl.parentNode != this._eMainArea){
+                this._eMainArea.appendChild(ePnl);
+            }
 
             ePnl.style.position = "absolute";
             ePnl.style.top = "0px";
@@ -501,7 +519,9 @@ placePanels : function(){
             this._oRegionBottom = oPnl;
             
             this._eRegionBottom = ePnl = oPnl._eElem;
-            this._eMainArea.parentNode.appendChild(ePnl);
+            if(ePnl.parentNode != this._eMainArea.parentNode || ePnl.previousElementSibling != this._eMainArea){
+                this._eMainArea.parentNode.appendChild(ePnl);
+            }
             
             ePnl.style.position = "";
             ePnl.style.top = "";
@@ -612,7 +632,7 @@ prepareSize : function(){
             }   
             iHeight += this._iContentHeight + this.getHeightDiff(true, true, true, true);
         }else{
-            iHeight += this._eContent.clientHeight + this.getHeightDiff(true, true, true, false);    //this.getContentHeightDiff(true);// + 1;    //   We take one pixel extra due to pixel rounding
+            iHeight += df.dom.clientHeight(this._eContent) + this.getHeightDiff(true, true, true, false); 
         }
     }
     
@@ -646,7 +666,7 @@ sizing is done first so that vertical sizing can handle scrollbars that might ap
 @private
 */
 resizeHorizontal : function(){
-    var i, iWidth = 0, iSpaceTaken = 0;
+    var i, iWidth = 0;
     
     if(this._eElem){
         if(this._bPanels){
@@ -683,6 +703,9 @@ resizeHorizontal : function(){
                     this._eRegionCenter.style.right = (this._oRegionRight.pbRender ? iWidth + "px" : "0px");
                 }
             }
+        }else{
+            //  No panels, we apply piMinWidth
+            this.updateMinWidth();
         }
         
     
@@ -720,7 +743,7 @@ resizeVertical : function(){
             
             bStretch = true;
         }else if(this._bStretch || (this instanceof df.WebPanel && (this.peRegion === df.ciRegionLeft || this.peRegion === df.ciRegionCenter || this.peRegion === df.ciRegionRight))){
-            iHeight = this._eContainer.clientHeight + this.getHeightDiff(true, false, false, false);
+            iHeight = df.dom.clientHeight(this._eContainer) + this.getHeightDiff(true, false, false, false);
             bStretch = true;
             
             //  This is needed to make oOrder function when rendered into a div with no height using displayView (pbFillHeight inside a panel)
@@ -852,6 +875,15 @@ setInnerWidth : function(iWidth){
     this._eSizer.style.width = (iWidth > 0 ? iWidth + "px" : "");
 },
 
+updateMinWidth : function(){
+    let iWidth = this.piMinWidth;
+    iWidth -= df.sys.gui.getHorizBoxDiff(this._eElem, 0);
+    iWidth -= df.sys.gui.getHorizBoxDiff(this._eSizer, 1);
+
+    this._eSizer.style.minWidth = (iWidth > 0 ? iWidth + "px" : "");
+
+},
+
 /*
 This method is called by the resize method to calculate to resize controls inside this container. It 
 calculates the heights of the controls with pbFillHeight set to true.
@@ -859,7 +891,7 @@ calculates the heights of the controls with pbFillHeight set to true.
 @private
 */
 resizeColumnLayout : function(){
-    var oChild, i, x, iHeight = 0, iRow = 0, iCol = 0, iRowHeight = 0, iMinHeight, iSpace, aStretch = [], iSize, oStretch, iCount = this.piColumnCount, iIndex, iSpan;
+    var oChild, i, x, iHeight = 0, iCol = 0, iRowHeight = 0, iMinHeight, iSpace, aStretch = [], iSize, oStretch, iCount = this.piColumnCount, iIndex, iSpan;
 
     //  FIX: On IE8 we are missing three pixels (don't know why)
     if(df.sys.isIE && df.sys.iVersion <= 8){
@@ -894,7 +926,6 @@ resizeColumnLayout : function(){
                     
                     //  Reset values
                     iRowHeight = 0;
-                    iRow++;
                     iCol = 0;
                 }
                 
@@ -922,8 +953,9 @@ resizeColumnLayout : function(){
                     }
                 }else{
                     //  Check if this is the highest item in this row, if so we count this one
-                    if(oChild._eElem.offsetHeight > iRowHeight){
-                        iRowHeight = oChild._eElem.offsetHeight;
+                    const nOffset = df.dom.offsetHeight(oChild._eElem);
+                    if(nOffset > iRowHeight){
+                        iRowHeight = nOffset;
                     }
                 }
                 
@@ -943,12 +975,12 @@ resizeColumnLayout : function(){
         this._iContentHeight = iHeight;
         
         //  Determine available space
-        iSpace = this._eContainer.clientHeight + this.getHeightDiff(true, false, false, false);
+        iSpace = df.dom.clientHeight(this._eContainer);
+
         if(iSpace < this.piMinHeight){
             iSpace = this.piMinHeight;
         }
-        iSpace = iSpace - this.getHeightDiff(true, true, true, true);
-        
+        iSpace = iSpace - this.getHeightDiff(false, true, true, true);
         iSpace = iSpace - iHeight;
         
         //  Loop through stretch rows
@@ -1060,10 +1092,6 @@ getRequiredHeight : function(){
     return this._iWantedHeight;
 },
 
-getAvailableHeight : function(){
-    return (this._eSizer.clientHeight > this._eElem.clientHeight ? this._eSizer.clientHeight : this._eElem.clientHeight);
-},
-
 /*
 Calculates the height differences between the elements of the container. These are margins, paddings 
 and borders. The parameter Booleans indicate which parts should be included. The illustration shows  
@@ -1088,12 +1116,13 @@ getHeightDiff : function(bOut, bIn, bContentOut, bContentIn){
     
     if(bOut){
         if(this._eContainer){
-            iHeight += df.sys.gui.getVertBoxDiff(this._eContainer, 1);
+            iHeight += df.sys.gui.getVertBoxDiff(this._eContainer, 3);
         }
     }
     if(bIn){
         if(this._eContainer){
             iHeight += df.sys.gui.getVertBoxDiff(this._eContainer, 2);
+            iHeight += (this._eContainer.offsetHeight - this._eContainer.clientHeight); //  Horizontal Scrollbar!
         }
         if(this._eSizer){
             iHeight += df.sys.gui.getVertBoxDiff(this._eSizer, 1);

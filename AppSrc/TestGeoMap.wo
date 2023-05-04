@@ -19,6 +19,7 @@ Use GeoConnectors\cOpenCageConnector.pkg
 Use GeoConnectors\cTrimbleConnector.pkg
 Use GeoConnectors\cWhat3WordsConnector.pkg
 Use GeoConnectors\cGoogleMapsConnector.pkg
+Use GeoConnectors\cBingMapsConnector.pkg
 
 Object oTestGeoMap is a cWebView
     Set psCaption to "GeoMapping Test"
@@ -54,6 +55,9 @@ Object oTestGeoMap is a cWebView
         End_Object
         
         Object oGoogleMaps is a cGoogleMapsConnector
+        End_Object
+        
+        Object oBingMaps is a cBingMapsConnector
         End_Object
         
     End_Object

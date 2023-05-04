@@ -13,7 +13,7 @@ var df = (function(){
     var aScripts, sRoot = "", bMinified, bShowBuffer, sPreloadTheme, sIncludePath, sVersionId, sV;
     
     //  Note: The following line is parsed and checked by the studio
-    sVersionId = "20.1.16.35";
+    sVersionId = "20.1.34.78";
     
     //  Determine current include location
     aScripts = document.getElementsByTagName("script");
